@@ -28,9 +28,9 @@ export class NForm {
     }
 
     /**
-     * Validação real usando Zod
+     * Validação real usando Zod com mapeamento refinado
      */
-    async validate() {
+    async validate(): Promise<{ success: boolean; errors: Record<string, string> }> {
         if (!this.schema) return { success: true, errors: {} };
 
         const result = this.schema.safeParse(this.data);
@@ -38,7 +38,7 @@ export class NForm {
 
         const fieldErrors: Record<string, string> = {};
         result.error.issues.forEach((issue) => {
-            const path = issue.path.join('.');
+            const path = issue.path.join('.') || 'global';
             fieldErrors[path] = issue.message;
         });
 
@@ -46,18 +46,12 @@ export class NForm {
     }
 
     /**
-     * Persistência Direta: Salva no backend do projeto
+     * Salva os dados no banco usando persistência orquestrada
      */
     async save() {
+        if (!this.model) throw new Error('Formulário não vinculado a um modelo Prisma. Use linkTo().');
+
         const validation = await this.validate();
-        if (!validation.success) {
-            console.error('Falha na validação:', validation.errors);
-            alert('Por favor, corrija os erros no formulário.');
-            return;
-        }
-
-        if (!this.model) throw new Error('Modelo não vinculado ao formulário');
-
         console.log(`💾 [NForm] Salvando em ${this.model}...`, this.data);
 
         try {

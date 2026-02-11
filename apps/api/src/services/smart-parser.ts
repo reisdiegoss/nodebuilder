@@ -94,39 +94,37 @@ export default class ${className}Page extends NPage {
         let extraProps = '';
 
         if (widget === 'NUniqueSearch') {
-            const target = field.name.replace('_id', 's'); // Simple pluralization
-            extraProps = ` targetTable="${target}" onSelect={(val) => this.form.setData({ ${field.name}: val.id })} `;
+            // Inteligência MadBuilder: se terminar em _id, busca na tabela pluralizada
+            const targetTable = field.name.endsWith('_id')
+                ? field.name.replace('_id', 's')
+                : field.name;
+            extraProps = ` targetTable="${targetTable}" value={this.form.getData('${field.name}')} onSelect={(val) => this.form.setData({ ${field.name}: val.id })} `;
         } else {
-            extraProps = ` onChange={(val) => this.form.setData({ ${field.name}: val })} `;
+            extraProps = ` value={this.form.getData('${field.name}')} onChange={(val) => this.form.setData({ ${field.name}: val })} `;
         }
 
-        return `<${widget} label="${field.name}"${extraProps}/>`;
+        return `<${widget} label="${field.label || field.name}" name="${field.name}"${extraProps}/>`;
     }
 
     private autoMapWidget(field: Field): string {
         if (field.widget) return field.widget;
-        if (field.type === 'date' || field.name.toLowerCase().includes('data')) return 'NDate';
-        if (field.type === 'file') return 'NFile';
-        if (field.name.toLowerCase().includes('senha')) return 'NPassword';
-        if (field.name.endsWith('_id')) return 'NUniqueSearch';
+        const name = field.name.toLowerCase();
+        const type = field.type.toLowerCase();
+
+        if (type === 'date' || name.includes('data')) return 'NDate';
+        if (type === 'file' || name.includes('arquivo') || name.includes('imagem')) return 'NFile';
+        if (name.includes('senha') || name.includes('password')) return 'NPassword';
+        if (name.endsWith('_id')) return 'NUniqueSearch';
+        if (type === 'boolean') return 'NCheckbox';
+        if (type === 'number') return 'NInput';
         return 'NInput';
-    }
-
-    private mapZodType(type: string): string {
-        const m: any = { string: 'string()', number: 'number()', boolean: 'boolean()', date: 'date()', file: 'string()' };
-        return m[type] || 'any()';
-    }
-
-    private getRequiredWidgets(table: Table): string {
-        const widgets = new Set(table.fields.map(f => this.autoMapWidget(f)));
-        return Array.from(widgets).join(', ');
     }
 
     private generateModernRepository(table: Table, tenantType: string): string {
         const className = this.capitalize(table.name);
         const low = table.name.toLowerCase();
 
-        // Injeção de Segurança SaaS: SINGLE_DB força filtro por tenantId em todas as queries
+        // Injeção de Segurança Pro: Filtro de Isolamento SaaS
         const tenantFilter = tenantType === 'SINGLE_DB'
             ? `, where: { tenantId: (global as any).currentTenantId }`
             : '';
@@ -134,10 +132,30 @@ export default class ${className}Page extends NPage {
         return `import { prisma } from '../infra/database';
 
 export class ${className}Repository {
-    async findAll() {
-        return await prisma.${low}.findMany({
-            ${tenantFilter ? tenantFilter.replace(', ', '') : ''}
-        });
+    async findAll(page = 1, search = '', sort?: string, dir?: 'asc' | 'desc') {
+        const take = 20;
+        const skip = (page - 1) * take;
+        
+        const where: any = {
+            ${tenantType === 'SINGLE_DB' ? 'tenantId: (global as any).currentTenantId,' : ''}
+            ...(search ? { 
+                OR: [
+                    ${table.fields.filter(f => f.type === 'string').map(f => `{ ${f.name}: { contains: search, mode: 'insensitive' } }`).join(',\n                    ')}
+                ]
+            } : {})
+        };
+
+        const [data, total] = await Promise.all([
+            prisma.${low}.findMany({
+                where,
+                take,
+                skip,
+                orderBy: sort ? { [sort]: dir || 'asc' } : { createdAt: 'desc' }
+            }),
+            prisma.${low}.count({ where })
+        ]);
+
+        return { data, total, totalPages: Math.ceil(total / take), page };
     }
 
     async findById(id: string) {
@@ -148,21 +166,19 @@ export class ${className}Repository {
 
     async create(data: any) {
         const payload = { ...data };
+        if (!payload.id) payload.id = undefined; // Deixar UUID automático
         ${tenantType === 'SINGLE_DB' ? "payload.tenantId = (global as any).currentTenantId;" : ""}
         return await prisma.${low}.create({ data: payload });
     }
 
     async update(id: string, data: any) {
-        return await prisma.${low}.updateMany({
-            where: { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} },
-            data
-        });
+        const where = { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} };
+        return await prisma.${low}.updateMany({ where, data });
     }
 
     async delete(id: string) {
-        return await prisma.${low}.deleteMany({
-            where: { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} }
-        });
+        const where = { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} };
+        return await prisma.${low}.deleteMany({ where });
     }
 }
 `;

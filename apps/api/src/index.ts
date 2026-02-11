@@ -110,10 +110,29 @@ const start = async () => {
             return await dockerService.removeSwarmService(serviceId);
         });
 
-        // Rotas de Migração
-        fastify.post('/migrations/generate', async (request) => {
-            const { tables } = request.body as any;
-            return MigrationService.convertERDToPrisma(tables);
+        // A Ponte de Ouro: ERD -> Banco Real
+        fastify.post('/migrations/sync', async (request, reply) => {
+            const { projectId, containerId, tables } = request.body as any;
+
+            try {
+                // 1. Gerar Schema
+                const prismaSchema = MigrationService.convertERDToPrisma(tables);
+
+                // 2. Sincronizar com Container
+                if (containerId) {
+                    await dockerService.syncFiles(containerId, [
+                        { path: 'prisma/schema.prisma', content: prismaSchema }
+                    ]);
+
+                    // 3. Notificar o usuário (Hot Update pronto)
+                    fastify.log.info(`Banco de Dados do Projeto ${projectId} atualizado.`);
+                }
+
+                return { success: true, schema: prismaSchema };
+            } catch (err) {
+                fastify.log.error(err);
+                return reply.status(500).send({ error: 'Erro ao sincronizar banco de dados' });
+            }
         });
 
         // Rotas da Enterprise Engine (Smart Parser 2.0)
