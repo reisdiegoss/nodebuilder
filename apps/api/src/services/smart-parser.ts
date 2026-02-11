@@ -1,5 +1,6 @@
 import { OOPEngineService } from './oop-engine.service';
 import { BoilerplateService } from './boilerplate.service';
+import { ApiRouteGenerator } from './api-route-generator';
 import type { Table, Field, WebhookDefinition } from './oop-engine.service';
 
 /**
@@ -26,6 +27,10 @@ export class SmartParser extends OOPEngineService {
         result['src/infra/database.ts'] = BoilerplateService.generateDatabaseConfig(projectSlug, userSlug);
         result['src/index.ts'] = BoilerplateService.generateServerMain();
         result['package.json'] = this.generatePackageJson(projectName);
+
+        // Runtime Backend (API Generator)
+        result['src/services/RuntimeCRUDService.ts'] = BoilerplateService.generateRuntimeCRUDService();
+        result['src/routes.ts'] = ApiRouteGenerator.generateRoutes(tables);
 
         return result;
     }
@@ -106,7 +111,6 @@ export default class ${className}Page extends NPage {
         }
         return \`<NInput label="\${field.name.toUpperCase()}" name="\${field.name}" />\`;
     }
-}
 
     public static convertERDToPrisma(tables: any[]): string {
         let schema = \`// NodeBuilder Generated Schema\\ndatasource db {\\n  provider = "postgresql"\\n  url      = env("DATABASE_URL")\\n}\\n\\ngenerator client {\\n  provider = "prisma-client-js"\\n}\\n\\n\`;
