@@ -30,85 +30,93 @@ export class SmartParser extends OOPEngineService {
         return result;
     }
 
-    private generateModernNPage(table: Table, tenantType: string): string {
+    public generateModernNPage(table: Table, projectConfig: any): string {
         const className = this.capitalize(table.name);
-        const low = table.name.toLowerCase();
+        // Suporte a diferentes formatos de config
+        const isSingleDb = projectConfig?.multiTenantType === 'SINGLE_DB' || projectConfig === 'SINGLE_DB';
 
         return `import React from 'react';
-import { NPage, NForm, NDataGrid, ${this.getRequiredWidgets(table)} } from '@nodebuilder/core';
+import { NPage, NForm, NInput, NDataGrid, NUniqueSearch, NRow, NCol } from '@nodebuilder/core';
 import { z } from 'zod';
 
 export default class ${className}Page extends NPage {
-    private form = new NForm('${className}');
+    private form: NForm;
 
-    private schema = z.object({
-        ${table.fields.map(f => `${f.name}: z.${this.mapZodType(f.type)}${f.isNullable ? '.optional()' : ''}`).join(',\n        ')}
-    });
+    constructor() {
+        super();
+        this.form = new NForm('${table.name}_form');
+        this.form.linkTo('${className}');
+        
+        // Validação MadBuilder Pro
+        this.form.setValidationSchema(z.object({
+            ${table.fields.filter(f => !f.isPrimary).map(f => `${f.name}: z.string().min(1, 'Campo obrigatório')`).join(',\n            ')}
+        }));
 
-    onLoad() {
-        this.form.linkTo('${className}', this.schema);
+        ${isSingleDb ? `// Injeção de Segurança Multi-tenant Nativa\n        this.applyTenantFilter(session.tenantId);` : ''}
     }
 
     render() {
         return (
-            <div className="p-8 space-y-8 max-w-7xl mx-auto">
-                <header className="flex justify-between items-center">
+            <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
+                <header className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <div>
-                        <h1 className="text-4xl font-black text-white tracking-tight">${className}</h1>
-                        <p className="text-zinc-500">Gestão inteligente de ${low} com isolamento SaaS.</p>
+                        <h1 className="text-2xl font-black text-slate-800 tracking-tight">${table.name}</h1>
+                        <p className="text-slate-400 text-sm font-medium">Gestão industrial de registros</p>
                     </div>
-                    <button 
-                        onClick={() => this.form.save()} 
-                        className="bg-brand-blue text-white px-8 py-3 rounded-2xl font-bold shadow-xl shadow-blue-500/10 hover:scale-[1.02] active:scale-95 transition-all"
-                    >
+                    <button onClick={() => this.form.save()} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-200">
                         Salvar Registro
                     </button>
                 </header>
 
-                <div className="grid grid-cols-1 xl:col-span-4 gap-8">
-                    <div className="xl:col-span-1 bg-zinc-900 border border-zinc-800 p-6 rounded-3xl space-y-6">
-                        <header className="flex justify-between items-center mb-2">
-                            <h3 className="text-zinc-400 font-bold uppercase text-xs tracking-widest">Formulário</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div className="lg:col-span-1 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-6">
+                        <header className="border-b border-slate-100 pb-4">
+                            <h3 className="text-slate-800 font-bold text-sm">Formulário</h3>
                         </header>
-                        ${table.fields.filter(f => f.widget !== 'NDataGrid').map(f => this.renderModernWidget(f)).join('\n                        ')}
+                        
+                        <div className="space-y-4">
+                            ${table.fields.filter(f => !f.isPrimary).map(f => this.renderIndustrialWidget(f)).join('\n                            ')}
+                        </div>
                     </div>
 
-                    <div className="xl:col-span-3 space-y-6">
+                    <div className="lg:col-span-3">
                         <NDataGrid 
                             table="${className}"
                             columns={[
-                                ${table.fields.map(f => `{ label: '${f.name}', key: '${f.name}' }`).join(',\n                                ')}
+                                ${table.fields.map(f => `{ name: '${f.name}', label: '${f.name.toUpperCase()}', sortable: true }`).join(',\n                                ')}
                             ]}
+                            pageSize={10}
                         />
                     </div>
                 </div>
             </div>
         );
     }
+
+    private renderIndustrialWidget(field: any): string {
+        // FK Detection MadBuilder
+        if (field.name.endsWith('_id')) {
+            const model = field.name.replace('_id', '');
+            return \`<NUniqueSearch 
+                                label="\${field.name.toUpperCase()}" 
+                                targetModel="\${model}" 
+                                targetEndpoint="/api/v1/\${model.toLowerCase()}" 
+                                displayField="nome" 
+                            />\`;
+        }
+        return \`<NInput label="\${field.name.toUpperCase()}" name="\${field.name}" />\`;
+    }
 }
 
-    // Helper method for Prisma type mapping, assuming it's needed for convertERDToPrisma
-    // This method is not present in the original code, so it's added as a placeholder.
-    private static mapType(type: string): string {
-        switch (type.toLowerCase()) {
-            case 'string': return 'String';
-            case 'number': return 'Int'; // Assuming integer for number, could be Float/Decimal
-            case 'boolean': return 'Boolean';
-            case 'date': return 'DateTime';
-            case 'uuid': return 'String'; // Prisma uses String for UUID
-            default: return 'String';
-        }
-    }
-
-    static convertERDToPrisma(tables: ERDTable[]): string {
-        let schema = `// NodeBuilder Generated Schema\ndatasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n`;
+    public static convertERDToPrisma(tables: any[]): string {
+        let schema = \`// NodeBuilder Generated Schema\\ndatasource db {\\n  provider = "postgresql"\\n  url      = env("DATABASE_URL")\\n}\\n\\ngenerator client {\\n  provider = "prisma-client-js"\\n}\\n\\n\`;
 
         tables.forEach(table => {
-            const className = SmartParser.prototype.capitalize(table.name); // Use prototype for static context
-            schema += `model ${className} {\n`;
+            const className = SmartParser.prototype.capitalize(table.name);
+            schema += \`model \${className} {\\n\`;
 
-            table.fields.forEach(field => {
-                let type = SmartParser.mapType(field.type); // Use the static helper
+            table.fields.forEach((field: any) => {
+                let type = SmartParser.mapType(field.type);
                 let decorators = '';
 
                 if (field.isPrimary) {
@@ -119,142 +127,103 @@ export default class ${className}Page extends NPage {
                     type += '?';
                 }
 
-                // Inteligência de Relação (FK) MadBuilder
                 if (field.name.endsWith('_id') && !field.isPrimary) {
                     const relationName = field.name.replace('_id', '');
-                    const targetModel = SmartParser.prototype.capitalize(relationName); // Use prototype for static context
-                    // Campo FK físico
-                    schema += `  ${field.name} String${field.isNullable ? '?' : ''}\n`;
-                    // Campo de Relação Lógica
-                    schema += `  ${relationName} ${targetModel}${field.isNullable ? '?' : ''} @relation(fields: [${field.name}], references: [id])\n`;
+                    const targetModel = SmartParser.prototype.capitalize(relationName);
+                    schema += \`  \${field.name} String\${field.isNullable ? '?' : ''}\\n\`;
+                    schema += \`  \${relationName} \${targetModel}\${field.isNullable ? '?' : ''} @relation(fields: [\${field.name}], references: [id])\\n\`;
                     return;
                 }
 
-                schema += `  ${field.name} ${type}${decorators}\n`;
+                schema += \`  \${field.name} \${type}\${decorators}\\n\`;
             });
 
-            // Isolação de Dados Nativa (Blindagem SaaS)
-            schema += `  tenantId String\n`;
-            schema += `  createdAt DateTime @default(now())\n`;
-            schema += `  updatedAt DateTime @updatedAt\n\n`;
-
-            // Índices Pro
-            schema += `  @@index([tenantId])\n`;
-            schema += `}\n\n`;
+            schema += \`  tenantId String\\n\`;
+            schema += \`  createdAt DateTime @default(now())\\n\`;
+            schema += \`  updatedAt DateTime @updatedAt\\n\\n\`;
+            schema += \`  @@index([tenantId])\\n\`;
+            schema += \`}\${'\\n'}\`;
         });
 
         return schema;
     }
 
-    private renderModernWidget(field: Field): string {
-        const widget = this.autoMapWidget(field);
-        let extraProps = '';
-
-        if (widget === 'NUniqueSearch') {
-            // Inteligência MadBuilder: se terminar em _id, busca na tabela pluralizada
-            const targetTable = field.name.endsWith('_id')
-                ? field.name.replace('_id', 's')
-                : field.name;
-            extraProps = ` targetTable="${targetTable}" value={this.form.getData('${field.name}')} onSelect={(val) => this.form.setData({ ${field.name}: val.id })} `;
-        } else {
-            extraProps = ` value={this.form.getData('${field.name}')} onChange={(val) => this.form.setData({ ${field.name}: val })} `;
+    private static mapType(type: string): string {
+        switch (type?.toLowerCase()) {
+            case 'string': case 'varchar': return 'String';
+            case 'int': case 'number': case 'integer': return 'Int';
+            case 'boolean': return 'Boolean';
+            case 'date': case 'datetime': return 'DateTime';
+            case 'float': return 'Float';
+            default: return 'String';
         }
-
-        return `<${widget} label="${field.label || field.name}" name="${field.name}"${extraProps}/>`;
-    }
-
-    private autoMapWidget(field: Field): string {
-        if (field.widget) return field.widget;
-        const name = field.name.toLowerCase();
-        const type = field.type.toLowerCase();
-
-        if (type === 'date' || name.includes('data')) return 'NDate';
-        if (type === 'file' || name.includes('arquivo') || name.includes('imagem')) return 'NFile';
-        if (name.includes('senha') || name.includes('password')) return 'NPassword';
-        if (name.endsWith('_id')) return 'NUniqueSearch';
-        if (type === 'boolean') return 'NCheckbox';
-        if (type === 'number') return 'NInput';
-        return 'NInput';
     }
 
     private generateModernRepository(table: Table, tenantType: string): string {
         const className = this.capitalize(table.name);
         const low = table.name.toLowerCase();
+        const tenantVariable = \`(global as any).currentTenantId\`;
 
-        // Injeção de Segurança Industrial: Tenant interceptor total
-        const tenantVariable = `(global as any).currentTenantId`;
+        return \`import { prisma } from '../infra/database';
 
-        return `import { prisma } from '../infra/database';
-
-export class ${className}Repository {
+export class \${className}Repository {
     async findAll(page = 1, limit = 20, search = '', sort?: string, dir?: 'asc' | 'desc') {
         const take = Math.min(limit, 100);
         const skip = (page - 1) * take;
         
         const where: any = {
-            ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable},` : ''}
+            \${tenantType === 'SINGLE_DB' ? \`tenantId: \${tenantVariable},\` : ''}
             ...(search ? { 
                 OR: [
-                    ${table.fields.filter(f => f.type === 'string').map(f => `{ ${f.name}: { contains: search, mode: 'insensitive' } }`).join(',\n                    ')}
+                    \${table.fields.filter(f => f.type === 'string').map(f => \`{ \${f.name}: { contains: search, mode: 'insensitive' } }\`).join(',\\n                    ')}
                 ]
             } : {})
         };
 
         const [data, total] = await Promise.all([
-            prisma.${low}.findMany({
+            prisma.\${low}.findMany({
                 where,
                 take,
                 skip,
                 orderBy: sort ? { [sort]: dir || 'asc' } : { createdAt: 'desc' },
                 include: {
-                    ${table.fields.filter(f => f.name.endsWith('_id')).map(f => f.name.replace('_id', ': true')).join(',\n                    ')}
+                    \${table.fields.filter(f => f.name.endsWith('_id')).map(f => \`\${f.name.replace('_id', '')}: true\`).join(',\\n                    ')}
                 }
             }),
-            prisma.${low}.count({ where })
+            prisma.\${low}.count({ where })
         ]);
 
         return { data, total, totalPages: Math.ceil(total / take), page };
     }
 
     async findById(id: string) {
-        return await prisma.${low}.findFirst({
+        return await prisma.\${low}.findFirst({
             where: { 
                 id,
-                ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''}
-            },
-            include: {
-                ${table.fields.filter(f => f.name.endsWith('_id')).map(f => f.name.replace('_id', ': true')).join(',\n                ')}
+                \${tenantType === 'SINGLE_DB' ? \`tenantId: \${tenantVariable}\` : ''}
             }
         });
     }
 
     async create(data: any) {
         const payload = { ...data };
-        if (!payload.id) payload.id = undefined;
-        ${tenantType === 'SINGLE_DB' ? `payload.tenantId = ${tenantVariable};` : ""}
-        return await prisma.${low}.create({ data: payload });
+        \${tenantType === 'SINGLE_DB' ? \`payload.tenantId = \${tenantVariable};\` : ""}
+        return await prisma.\${low}.create({ data: payload });
     }
 
     async update(id: string, data: any) {
-        const where = { 
-            id,
-            ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''}
-        };
-        return await prisma.${low}.updateMany({ where, data });
+        return await prisma.\${low}.updateMany({
+            where: { id, \${tenantType === 'SINGLE_DB' ? \`tenantId: \${tenantVariable}\` : ''} },
+            data
+        });
     }
 
     async delete(id: string) {
-        const where = { 
-            id,
-            ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''}
-        };
-        return await prisma.${low}.deleteMany({ where });
+        return await prisma.\${low}.deleteMany({
+            where: { id, \${tenantType === 'SINGLE_DB' ? \`tenantId: \${tenantVariable}\` : ''} }
+        });
     }
 }
-`;
-    }
-
-    private generateModernMainFile(n: string, u: string, p: string, t: Table[], w: WebhookDefinition[]): string {
-        return `// Server Enterprise NodeBuilder 2.0\nimport Fastify from 'fastify';\nconst server = Fastify();\nserver.listen({ port: 3000 });`;
+\`;
     }
 }

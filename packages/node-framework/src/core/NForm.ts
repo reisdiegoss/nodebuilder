@@ -1,72 +1,99 @@
-import { useState } from 'react';
 import { z } from 'zod';
 
 /**
- * NForm: Gerenciador de Estado, Validação Zod e Persistência
+ * NForm: O cérebro do formulário NodeBuilder.
+ * Gerencia automaticamente busca, validação Zod e persistência.
  */
 export class NForm {
     private data: Record<string, any> = {};
-    private model: string = '';
     private schema: z.ZodObject<any> | null = null;
+    private errors: Record<string, string> = {};
+    private model: string = '';
 
     constructor(model?: string, schema?: z.ZodObject<any>) {
         if (model) this.model = model;
         if (schema) this.schema = schema;
     }
 
-    linkTo(modelName: string, schema?: z.ZodObject<any>) {
+    /**
+     * Vincula o formulário a um modelo do Prisma no servidor gerado
+     */
+    public linkTo(modelName: string, schema?: z.ZodObject<any>) {
         this.model = modelName;
         if (schema) this.schema = schema;
+        return this;
     }
 
-    setData(data: any) {
+    /**
+     * Define o esquema de validação
+     */
+    public setValidationSchema(schema: any) {
+        this.schema = schema;
+        return this;
+    }
+
+    public setData(data: any) {
         this.data = { ...this.data, ...data };
     }
 
-    getData() {
+    public getData(field?: string) {
+        if (field) return this.data[field];
         return this.data;
     }
 
     /**
-     * Validação real usando Zod com mapeamento refinado
+     * Valida os dados usando Zod.
      */
-    async validate(): Promise<{ success: boolean; errors: Record<string, string> }> {
-        if (!this.schema) return { success: true, errors: {} };
+    public async validate(): Promise<boolean> {
+        if (!this.schema) return true;
 
-        const result = this.schema.safeParse(this.data);
-        if (result.success) return { success: true, errors: {} };
+        try {
+            this.schema.parse(this.data);
+            this.errors = {};
+            return true;
+        } catch (err: any) {
+            if (err instanceof z.ZodError) {
+                const formattedErrors: any = {};
+                err.errors.forEach((e) => {
+                    formattedErrors[e.path[0]] = e.message;
+                });
+                this.errors = formattedErrors;
+            }
+            return false;
+        }
+    }
 
-        const fieldErrors: Record<string, string> = {};
-        result.error.issues.forEach((issue) => {
-            const path = issue.path.join('.') || 'global';
-            fieldErrors[path] = issue.message;
-        });
-
-        return { success: false, errors: fieldErrors };
+    public getError(field: string): string | undefined {
+        return this.errors[field];
     }
 
     /**
-     * Salva os dados no banco usando persistência orquestrada
+     * Salva os dados no servidor (Paridade MadBuilder)
      */
-    async save() {
-        if (!this.model) throw new Error('Formulário não vinculado a um modelo Prisma. Use linkTo().');
+    public async save(): Promise<any> {
+        if (!this.model) throw new Error('Formulário não vinculado a um modelo. Use linkTo().');
 
-        const validation = await this.validate();
-        console.log(`💾 [NForm] Salvando em ${this.model}...`, this.data);
+        const isValid = await this.validate();
+        if (!isValid) return { success: false, errors: this.errors };
 
         try {
-            const response = await fetch(`/api/v1/${this.model.toLowerCase()}`, {
-                method: 'POST',
+            const endpoint = `/api/v1/${this.model.toLowerCase()}`;
+            const method = this.data.id ? 'PUT' : 'POST';
+            const url = this.data.id ? `${endpoint}/${this.data.id}` : endpoint;
+
+            const res = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(this.data)
             });
 
-            if (!response.ok) throw new Error('Falha ao salvar');
-
-            alert('Registro salvo com sucesso!');
+            const result = await res.json();
+            if (res.ok) alert('Registro processado com sucesso!');
+            return { success: res.ok, data: result };
         } catch (err) {
-            console.error('Erro ao salvar:', err);
+            console.error('NForm Save Error:', err);
             alert('Erro ao comunicar com o servidor.');
+            return { success: false, error: 'Erro de rede.' };
         }
     }
 }

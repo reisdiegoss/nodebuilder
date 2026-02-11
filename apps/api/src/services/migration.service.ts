@@ -18,50 +18,50 @@ export class MigrationService {
     /**
      * Converte o JSON do Modelador ERD para um schema.prisma completo
      */
-    static convertERDToPrisma(tables: ERDTable[]): string {
-        let schema = `// NodeBuilder Generated Schema\ndatasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n`;
+    static convertERDToPrisma(tables: any[]): string {
+        let prismaSchema = `// NodeBuilder Generated Schema\ngenerator client {\n  provider = "prisma-client-js"\n}\n\ndatasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n`;
 
         tables.forEach(table => {
-            const className = this.capitalize(table.name);
-            schema += `model ${className} {\n`;
+            prismaSchema += `\nmodel ${this.capitalize(table.name)} {`;
 
-            table.fields.forEach(field => {
-                let type = this.mapType(field.type);
-                let decorators = '';
+            // Assume que table.columns ou table.fields pode ser usado dependendo da origem
+            const columns = table.columns || table.fields || [];
 
-                if (field.isPrimary) {
-                    decorators += ' @id @default(uuid())';
-                }
+            columns.forEach((col: any) => {
+                let fieldDef = `  ${col.name} ${this.mapType(col.type)}`;
 
-                if (field.isNullable && !field.isPrimary) {
-                    type += '?';
-                }
+                if (col.isPk || col.isPrimary) fieldDef += " @id @default(uuid())";
+                if (col.isUnique) fieldDef += " @unique";
+                if (!col.required && !col.isPk && !col.isPrimary) fieldDef += "?";
 
-                // Inteligência de Relação (FK) MadBuilder @relation
-                if (field.name.endsWith('_id') && !field.isPrimary) {
-                    const relationName = field.name.replace('_id', '');
-                    const targetModel = this.capitalize(relationName);
-                    // Campo FK físico
-                    schema += `  ${field.name} String${field.isNullable ? '?' : ''}\n`;
-                    // Campo de Relação Lógica Prisma
-                    schema += `  ${relationName} ${targetModel}${field.isNullable ? '?' : ''} @relation(fields: [${field.name}], references: [id])\n`;
-                    return;
-                }
-
-                schema += `  ${field.name} ${type}${decorators}\n`;
+                prismaSchema += `\n${fieldDef}`;
             });
 
-            // Isolação de Dados Nativa (Blindagem SaaS Industrial)
-            schema += `  tenantId String\n`;
-            schema += `  createdAt DateTime @default(now())\n`;
-            schema += `  updatedAt DateTime @updatedAt\n\n`;
-
-            // Índices Pro de Performance
-            schema += `  @@index([tenantId])\n`;
-            schema += `}\n\n`;
+            // Injeção automática da coluna Tenant para Multi-tenant (Paridade MadBuilder)
+            prismaSchema += `\n  tenant_id String @default("1")`;
+            prismaSchema += `\n  createdAt DateTime @default(now())`;
+            prismaSchema += `\n  updatedAt DateTime @updatedAt`;
+            prismaSchema += `\n\n  @@index([tenant_id])`;
+            prismaSchema += `\n}\n`;
         });
 
-        return schema;
+        return prismaSchema;
+    }
+
+    private static mapType(uiType: string): string {
+        const types: Record<string, string> = {
+            'INTEGER': 'Int',
+            'VARCHAR': 'String',
+            'TEXT': 'String',
+            'BOOLEAN': 'Boolean',
+            'DATE': 'DateTime',
+            'FLOAT': 'Float',
+            'string': 'String',
+            'number': 'Int',
+            'boolean': 'Boolean',
+            'datetime': 'DateTime'
+        };
+        return types[uiType?.toUpperCase()] || types[uiType] || 'String';
     }
 
     private static mapType(type: string): string {
