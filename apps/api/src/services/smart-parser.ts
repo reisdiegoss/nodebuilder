@@ -91,13 +91,21 @@ export default class ${className}Page extends NPage {
 
     private renderModernWidget(field: Field): string {
         const widget = this.autoMapWidget(field);
-        const onChangeAttr = ` onChange={(val) => this.form.setData({ ${field.name}: val })} `;
-        return `<${widget} label="${field.name}"${onChangeAttr}/>`;
+        let extraProps = '';
+
+        if (widget === 'NUniqueSearch') {
+            const target = field.name.replace('_id', 's'); // Simple pluralization
+            extraProps = ` targetTable="${target}" onSelect={(val) => this.form.setData({ ${field.name}: val.id })} `;
+        } else {
+            extraProps = ` onChange={(val) => this.form.setData({ ${field.name}: val })} `;
+        }
+
+        return `<${widget} label="${field.name}"${extraProps}/>`;
     }
 
     private autoMapWidget(field: Field): string {
         if (field.widget) return field.widget;
-        if (field.type === 'date') return 'NDate';
+        if (field.type === 'date' || field.name.toLowerCase().includes('data')) return 'NDate';
         if (field.type === 'file') return 'NFile';
         if (field.name.toLowerCase().includes('senha')) return 'NPassword';
         if (field.name.endsWith('_id')) return 'NUniqueSearch';
@@ -118,6 +126,7 @@ export default class ${className}Page extends NPage {
         const className = this.capitalize(table.name);
         const low = table.name.toLowerCase();
 
+        // Injeção de Segurança SaaS: SINGLE_DB força filtro por tenantId em todas as queries
         const tenantFilter = tenantType === 'SINGLE_DB'
             ? `, where: { tenantId: (global as any).currentTenantId }`
             : '';
@@ -131,10 +140,29 @@ export class ${className}Repository {
         });
     }
 
+    async findById(id: string) {
+        return await prisma.${low}.findFirst({
+            where: { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} }
+        });
+    }
+
     async create(data: any) {
         const payload = { ...data };
         ${tenantType === 'SINGLE_DB' ? "payload.tenantId = (global as any).currentTenantId;" : ""}
         return await prisma.${low}.create({ data: payload });
+    }
+
+    async update(id: string, data: any) {
+        return await prisma.${low}.updateMany({
+            where: { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} },
+            data
+        });
+    }
+
+    async delete(id: string) {
+        return await prisma.${low}.deleteMany({
+            where: { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} }
+        });
     }
 }
 `;

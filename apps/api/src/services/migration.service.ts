@@ -19,18 +19,12 @@ export class MigrationService {
      * Converte o JSON do Modelador ERD para um schema.prisma completo
      */
     static convertERDToPrisma(tables: ERDTable[]): string {
-        let schema = `datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
-\n`;
+        let schema = `// NodeBuilder Generated Schema\ndatasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n`;
 
         tables.forEach(table => {
-            schema += `model ${this.capitalize(table.name)} {\n`;
+            const className = this.capitalize(table.name);
+            schema += `model ${className} {\n`;
+
             table.fields.forEach(field => {
                 let type = this.mapType(field.type);
                 let decorators = '';
@@ -43,13 +37,17 @@ generator client {
                     type += '?';
                 }
 
+                // FK mapping support (se o nome terminar em _id, assume relação - simplificado para este nível)
                 schema += `  ${field.name} ${type}${decorators}\n`;
             });
 
-            // Injeção automática de tenant_id para isolamento (SINGLE_DB pattern)
+            // Isolação de Dados (Mandatório para SaaS)
             schema += `  tenantId String\n`;
             schema += `  createdAt DateTime @default(now())\n`;
-            schema += `  updatedAt DateTime @updatedAt\n`;
+            schema += `  updatedAt DateTime @updatedAt\n\n`;
+
+            // Índices de performance
+            schema += `  @@index([tenantId])\n`;
             schema += `}\n\n`;
         });
 

@@ -28,19 +28,21 @@ export class NForm {
     }
 
     /**
-     * Validação em tempo real usando Zod
+     * Validação real usando Zod
      */
     async validate() {
-        if (!this.schema) return { success: true };
-        try {
-            this.schema.parse(this.data);
-            return { success: true };
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                return { success: false, errors: error.issues };
-            }
-            return { success: false, errors: [{ message: 'Erro desconhecido na validação' }] };
-        }
+        if (!this.schema) return { success: true, errors: {} };
+
+        const result = this.schema.safeParse(this.data);
+        if (result.success) return { success: true, errors: {} };
+
+        const fieldErrors: Record<string, string> = {};
+        result.error.issues.forEach((issue) => {
+            const path = issue.path.join('.');
+            fieldErrors[path] = issue.message;
+        });
+
+        return { success: false, errors: fieldErrors };
     }
 
     /**

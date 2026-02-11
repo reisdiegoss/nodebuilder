@@ -98,7 +98,7 @@ export const NDBSelect = ({ label, table, labelField = 'name', valueField = 'id'
     return <NSelect label={label} options={options} onChange={onChange} />;
 };
 
-export const NUniqueSearch = ({ label, targetTable, onSelect }: any) => {
+export const NUniqueSearch = ({ label, targetTable, onSelect, error }: any) => {
     const [isOpen, setIsOpen] = useState(false);
     const [selection, setSelection] = useState<any>(null);
 
@@ -107,41 +107,28 @@ export const NUniqueSearch = ({ label, targetTable, onSelect }: any) => {
             <label className="text-sm font-semibold text-zinc-400">{label}</label>
             <div
                 onClick={() => setIsOpen(true)}
-                className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 cursor-pointer hover:border-zinc-700 transition-all group"
+                className={cn(
+                    "flex items-center gap-2 bg-zinc-900 border rounded-xl px-4 py-2.5 cursor-pointer hover:border-zinc-700 transition-all group",
+                    error ? "border-red-500/50" : "border-zinc-800"
+                )}
             >
                 <div className="flex-1 text-zinc-400 italic text-sm group-hover:text-zinc-300">
-                    {selection ? selection.name : `Buscar em ${targetTable}...`}
+                    {selection ? selection.name || selection.id : `Buscar em ${targetTable}...`}
                 </div>
                 <Search size={18} className="text-zinc-500 group-hover:text-brand-blue transition-colors" />
             </div>
+            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
 
-            <AnimatePresence>
-                {isOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-zinc-900 border border-zinc-800 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden"
-                        >
-                            <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-800/20">
-                                <h4 className="font-bold flex items-center gap-2"><Search size={18} className="text-brand-blue" /> Selecionar {targetTable}</h4>
-                                <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-zinc-800 rounded-lg"><X size={20} /></button>
-                            </div>
-                            <div className="p-4 max-h-[60vh] overflow-auto">
-                                <NDataGrid
-                                    table={targetTable}
-                                    onRowClick={(row: any) => {
-                                        setSelection(row);
-                                        onSelect?.(row);
-                                        setIsOpen(false);
-                                    }}
-                                />
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            <NWindow title={`Selecionar ${targetTable}`} isOpen={isOpen} onClose={() => setIsOpen(false)}>
+                <NDataGrid
+                    table={targetTable}
+                    onRowClick={(row: any) => {
+                        setSelection(row);
+                        onSelect?.(row);
+                        setIsOpen(false);
+                    }}
+                />
+            </NWindow>
         </div>
     );
 };
@@ -181,72 +168,128 @@ export const NFile = ({ label, onUpload }: any) => {
 
 // --- DISPLAY WIDGETS ---
 
-export const NDataGrid = ({ title, table, endpoint, columns, onRowClick }: any) => {
-    const [data, setData] = useState([]);
+export const NDataGrid = ({ title, table, endpoint, columns, onRowClick, actions }: any) => {
+    const [data, setData] = useState<any[]>([]);
     const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const [search, setSearch] = useState('');
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const url = endpoint || `/api/v1/${table?.toLowerCase()}?page=${page}&q=${search}`;
-        fetch(url)
-            .then(res => res.json())
-            .then(setData)
-            .catch(err => console.error('DataGrid fetch err:', err));
+        const fetchRemote = async () => {
+            setLoading(true);
+            try {
+                const url = endpoint || `/api/v1/${table?.toLowerCase()}?page=${page}&q=${search}`;
+                const res = await fetch(url);
+                const result = await res.json();
+
+                // Suporte a formato paginado ou array simples
+                if (result.data && Array.isArray(result.data)) {
+                    setData(result.data);
+                    setTotalPages(result.totalPages || 1);
+                } else if (Array.isArray(result)) {
+                    setData(result);
+                    setTotalPages(1);
+                }
+            } catch (err) {
+                console.error('DataGrid Error:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchRemote();
     }, [table, endpoint, page, search]);
 
     return (
-        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            {/* Header com Busca */}
             <div className="p-5 border-b border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-900/40">
                 <h4 className="font-bold text-lg flex items-center gap-2">
                     <TableIcon size={20} className="text-brand-blue" /> {title || table || 'Listagem'}
+                    {loading && <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-4 h-4 border-2 border-brand-blue border-t-transparent rounded-full" />}
                 </h4>
                 <div className="relative flex-1 md:max-w-xs">
                     <Search className="absolute left-3 top-2.5 text-zinc-500" size={16} />
                     <input
                         type="text"
-                        placeholder="Pesquisa rápida..."
+                        placeholder="Pesquisar..."
+                        value={search}
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-blue transition-all"
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
             </div>
 
+            {/* Tabela de Dados */}
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm border-collapse">
-                    <thead className="bg-zinc-800/60 text-zinc-500 uppercase text-[11px] font-black tracking-wider border-b border-zinc-800">
+                    <thead className="bg-zinc-800/60 text-zinc-500 uppercase text-[10px] font-black tracking-widest border-b border-zinc-800">
                         <tr>
                             {columns?.map((col: any) => (
                                 <th key={col.key} className="px-6 py-4">{col.label}</th>
                             ))}
+                            {actions && <th className="px-6 py-4 text-right">Ações</th>}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-900">
-                        {data.map((row: any, i: number) => (
+                    <tbody className="divide-y divide-zinc-900/50">
+                        {data.length > 0 ? data.map((row: any, i: number) => (
                             <motion.tr
                                 key={i}
-                                initial={{ opacity: 0, y: 5 }}
-                                animate={{ opacity: 1, y: 0 }}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
                                 onClick={() => onRowClick?.(row)}
                                 className={cn(
-                                    "hover:bg-brand-blue/5 transition-all cursor-pointer group",
+                                    "hover:bg-brand-blue/5 transition-all group",
                                     onRowClick ? "cursor-pointer" : ""
                                 )}
                             >
                                 {columns?.map((col: any) => (
-                                    <td key={col.key} className="px-6 py-4 text-zinc-300 font-medium group-hover:text-white transition-colors">
-                                        {row[col.key]}
+                                    <td key={col.key} className="px-6 py-4 text-zinc-300 font-medium whitespace-nowrap">
+                                        {row[col.key] || '-'}
                                     </td>
                                 ))}
+                                {actions && (
+                                    <td className="px-6 py-4 text-right space-x-2">
+                                        {actions.map((act: any, idx: number) => (
+                                            <button key={idx} onClick={(e) => { e.stopPropagation(); act.handler(row); }} className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-all">
+                                                {act.icon}
+                                            </button>
+                                        ))}
+                                    </td>
+                                )}
                             </motion.tr>
-                        ))}
+                        )) : (
+                            <tr>
+                                <td colSpan={100} className="px-6 py-10 text-center text-zinc-600 italic">
+                                    Nenhum registro encontrado.
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>
 
-            <div className="p-4 border-t border-zinc-800 bg-zinc-900/20 flex items-center justify-center gap-4 text-zinc-500">
-                <button onClick={() => setPage(Math.max(1, page - 1))} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"><ChevronLeft size={20} /></button>
-                <span className="text-xs font-bold uppercase tracking-widest">Página {page}</span>
-                <button onClick={() => setPage(page + 1)} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"><ChevronRight size={20} /></button>
+            {/* Paginação */}
+            <div className="p-4 border-t border-zinc-800 bg-zinc-900/20 flex items-center justify-between px-6">
+                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Total: {data.length} Itens</span>
+                <div className="flex items-center gap-2">
+                    <button
+                        disabled={page === 1}
+                        onClick={() => setPage(p => p - 1)}
+                        className="p-2 hover:bg-zinc-800 disabled:opacity-30 rounded-lg transition-colors text-zinc-400"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <span className="text-xs font-black text-brand-blue px-3">{page}</span>
+                    <button
+                        disabled={page >= totalPages}
+                        onClick={() => setPage(p => p + 1)}
+                        className="p-2 hover:bg-zinc-800 disabled:opacity-30 rounded-lg transition-colors text-zinc-400"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                </div>
             </div>
         </div>
     );

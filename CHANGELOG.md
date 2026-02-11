@@ -4,9 +4,10 @@
 
 ### Adicionado
 
-- Estrutura inicial do projeto NodeBuilder.
-- Implementação do `@nodebuilder/core` com base em OOP (MadBuilder Clone).
-- Geradores de SmartParser e BoilerplateService.
-- Sistema de TriggerInterceptor via Prisma Extensions.
-- Implementação de widgets complexos (NDataGrid, NUniqueSearch, NTabs, etc).
-- Configuração de automação de infraestrutura (ERD -> Migration).
+- Estrutura inicial do projeto NodeBuilder com prefixo `N`.
+- Implementação de Widgets Enterprise: `NDataGrid`, `NUniqueSearch`, `NDBSelect`, `NFile`.
+- `NForm` com validação real via Zod e persistência automática.
+- Ponte ERD -> Prisma (`MigrationService`) com suporte a multitenancy em containers Docker.
+- `SmartParser` com filtros de segurança SaaS e mapeamento inteligente de widgets.
+- Geração dinâmica de Swagger CRUD para todas as tabelas ERD.
+- Documentação mandatória: CHANGELOG, GUIA TÉCNICO, GUIA DE REFERÊNCIA e ROADMAP.
