@@ -1,23 +1,22 @@
-import { Table } from '../interfaces';
+import type { Table } from '../interfaces';
 
 export class ApiRouteGenerator {
-    public static generateRoutes(tables: Table[]): string {
-        const imports = `
+  public static generateRoutes(tables: Table[]): string {
+    const imports = `
 import { FastifyInstance } from 'fastify';
 import { RuntimeCRUDService } from './services/RuntimeCRUDService';
 import { prisma } from './infra/database';
 `;
 
-        let routes = `
+    let routes = `
 export async function appRoutes(app: FastifyInstance) {
   const runtime = new RuntimeCRUDService(prisma);
 `;
 
-        tables.forEach(table => {
-            const modelName = table.name.toLowerCase();
-            const model = table.name; // Presume-se PascalCase no schema prisma
+    tables.forEach((table: Table) => {
+      const modelName = table.name.toLowerCase();
 
-            routes += `
+      routes += `
   // --- ${table.name} ---
 
   // List (GET)
@@ -57,9 +56,9 @@ export async function appRoutes(app: FastifyInstance) {
     return { success: true };
   });
 `;
-        });
+    });
 
-        routes += `\n}`;
-        return imports + routes;
-    }
+    routes += `\n}`;
+    return imports + routes;
+  }
 }

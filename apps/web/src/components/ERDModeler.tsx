@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Plus, Trash2, Key, Type, Hash, Code, X, Download } from 'lucide-react';
-import { parser } from '../../../../packages/engine/src/parser.js';
+import { Trash2, Key, Code, X, Download, Plus } from 'lucide-react';
+import { Parser } from '@nodebuilder/engine';
+
+const parser = new Parser();
 
 interface Field {
     id: string;
@@ -37,11 +39,17 @@ export const ERDModeler = () => {
     const [migrations, setMigrations] = useState<{ sql: string; prismaSchema: string } | null>(null);
 
     const generatePreview = () => {
-        const code = parser.parseToTSX({
-            name: tables[0]?.name || 'App',
-            type: 'PAGE',
-            fields: tables[0]?.fields.map(f => ({ name: f.name, type: f.type, label: f.name })) || []
-        });
+        const table = tables[0];
+        if (!table) return;
+
+        const code = parser.generatePage({
+            name: table.name,
+            fields: table.fields.map(f => ({
+                name: f.name,
+                type: f.type,
+                isPrimary: f.isPrimary
+            }))
+        }, 'SINGLE_DB');
         setPreviewCode(code);
     };
 

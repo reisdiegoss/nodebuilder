@@ -1,99 +1,111 @@
 import { z } from 'zod';
 
 /**
- * NForm: O cérebro do formulário NodeBuilder.
- * Gerencia automaticamente busca, validação Zod e persistência.
+ * NForm: Gerenciador de estado e validação de formulários.
+ * * Agora implementa os métodos setField, getErrors, getData e outros
+ * necessários para que os componentes de exemplo compilem corretamente.
  */
 export class NForm {
+    private name: string;
     private data: Record<string, any> = {};
     private schema: z.ZodObject<any> | null = null;
     private errors: Record<string, string> = {};
-    private model: string = '';
+    private targetModel: string = '';
 
-    constructor(model?: string, schema?: z.ZodObject<any>) {
-        if (model) this.model = model;
-        if (schema) this.schema = schema;
+    constructor(name: string) {
+        this.name = name;
     }
 
     /**
-     * Vincula o formulário a um modelo do Prisma no servidor gerado
+     * Define o valor de um campo específico.
+     * Utilizado pelos widgets de Input para atualizar o estado.
+     * @param field Nome do campo
+     * @param value Valor do campo
      */
-    public linkTo(modelName: string, schema?: z.ZodObject<any>) {
-        this.model = modelName;
-        if (schema) this.schema = schema;
-        return this;
+    public setField(field: string, value: any): void {
+        this.data[field] = value;
+        // Limpa o erro do campo ao digitar, se existir
+        if (this.errors[field]) {
+            delete this.errors[field];
+        }
     }
 
     /**
-     * Define o esquema de validação
+     * Retorna o valor atual de um campo.
+     * @param field Nome do campo
      */
-    public setValidationSchema(schema: any) {
-        this.schema = schema;
-        return this;
+    public getField(field: string): any {
+        return this.data[field];
     }
 
-    public setData(data: any) {
-        this.data = { ...this.data, ...data };
+    /**
+     * Substitui todo o objeto de dados (útil para carregar dados de edição).
+     * @param data Objeto completo
+     */
+    public setData(data: any): void {
+        this.data = { ...data };
     }
 
-    public getData(field?: string) {
-        if (field) return this.data[field];
+    /**
+     * Retorna o objeto de dados completo para envio à API.
+     */
+    public getData(): Record<string, any> {
         return this.data;
     }
 
     /**
-     * Valida os dados usando Zod.
+     * Retorna a lista de erros de validação atuais.
+     */
+    public getErrors(): Record<string, string> {
+        return this.errors;
+    }
+
+    /**
+     * Retorna o erro de um campo específico, se houver.
+     */
+    public getError(field: string): string | undefined {
+        return this.errors[field];
+    }
+
+    /**
+     * Vincula o formulário a um Schema de validação Zod.
+     */
+    public setValidationSchema(schema: any): this {
+        this.schema = schema;
+        return this;
+    }
+
+    /**
+     * Vincula a um modelo de banco de dados (para uso futuro com o Parser).
+     */
+    public linkTo(modelName: string): this {
+        this.targetModel = modelName;
+        return this;
+    }
+
+    /**
+     * Executa a validação dos dados atuais contra o schema.
+     * @returns true se válido, false se houver erros.
      */
     public async validate(): Promise<boolean> {
         if (!this.schema) return true;
 
         try {
             this.schema.parse(this.data);
-            this.errors = {};
+            this.errors = {}; // Limpa erros se passar
             return true;
         } catch (err: any) {
             if (err instanceof z.ZodError) {
-                const formattedErrors: any = {};
+                const formattedErrors: Record<string, string> = {};
                 err.errors.forEach((e) => {
-                    formattedErrors[e.path[0]] = e.message;
+                    // Garante que o path existe antes de atribuir
+                    if (e.path.length > 0) {
+                        formattedErrors[e.path[0].toString()] = e.message;
+                    }
                 });
                 this.errors = formattedErrors;
             }
             return false;
-        }
-    }
-
-    public getError(field: string): string | undefined {
-        return this.errors[field];
-    }
-
-    /**
-     * Salva os dados no servidor (Paridade MadBuilder)
-     */
-    public async save(): Promise<any> {
-        if (!this.model) throw new Error('Formulário não vinculado a um modelo. Use linkTo().');
-
-        const isValid = await this.validate();
-        if (!isValid) return { success: false, errors: this.errors };
-
-        try {
-            const endpoint = `/api/v1/${this.model.toLowerCase()}`;
-            const method = this.data.id ? 'PUT' : 'POST';
-            const url = this.data.id ? `${endpoint}/${this.data.id}` : endpoint;
-
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(this.data)
-            });
-
-            const result = await res.json();
-            if (res.ok) alert('Registro processado com sucesso!');
-            return { success: res.ok, data: result };
-        } catch (err) {
-            console.error('NForm Save Error:', err);
-            alert('Erro ao comunicar com o servidor.');
-            return { success: false, error: 'Erro de rede.' };
         }
     }
 }

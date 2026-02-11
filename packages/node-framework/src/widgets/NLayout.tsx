@@ -13,17 +13,5 @@ export const NCard = ({ title, children, className }: any) => (
     </div>
 );
 
-export const NPage = ({ title, children, actions }: any) => (
-    <div className="min-h-screen bg-slate-50/50 p-8 space-y-8 animate-in fade-in duration-500">
-        <header className="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-200/60">
-            <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">{title}</h1>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">NodeBuilder Framework • Industrial</p>
-            </div>
-            <div className="flex gap-3">
-                {actions}
-            </div>
-        </header>
-        <main>{children}</main>
-    </div>
-);
+// NPage removido em favor de @nodebuilder/core/NPage
+// export const NPage = ...

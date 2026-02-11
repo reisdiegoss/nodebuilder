@@ -58,7 +58,7 @@ export const NUniqueSearch: React.FC<any> = ({
                                     ]}
                                     pageSize={5}
                                     onRowClick={handleSelection}
-                                    actions={{ onEdit: (id) => handleSelection({ id, [displayField]: `Selecionado ${id}` }) }}
+                                    actions={{ onEdit: (row: any) => handleSelection(row) }}
                                 />
                             </div>
                         </motion.div>

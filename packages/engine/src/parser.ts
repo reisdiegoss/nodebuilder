@@ -1,4 +1,4 @@
-import { Table } from '../interfaces';
+import type { Table, Field } from './interfaces';
 import { ApiRouteGenerator } from './generators/ApiRouteGenerator';
 import { BoilerplateGenerator } from './generators/BoilerplateGenerator';
 
@@ -11,7 +11,7 @@ export class Parser {
     const result: Record<string, string> = {};
 
     // 1. Pages & Entities & Repositories
-    tables.forEach(table => {
+    tables.forEach((table: Table) => {
       const lowName = table.name.toLowerCase();
       result[`src/pages/${lowName}.page.tsx`] = this.generatePage(table, multiTenantType);
       result[`src/repositories/${lowName}.repository.ts`] = this.generateRepository(table, multiTenantType);
@@ -46,7 +46,7 @@ export default class ${className}Page extends NPage {
         this.form.linkTo('${className}');
         
         this.form.setValidationSchema(z.object({
-            ${table.fields.filter(f => !f.isPrimary).map(f => `${f.name}: z.string().min(1, 'Obrigatório')`).join(',\n            ')}
+            ${table.fields.filter((f: Field) => !f.isPrimary).map((f: Field) => `${f.name}: z.string().min(1, 'Obrigatório')`).join(',\n            ')}
         }));
 
         ${tenantType === 'SINGLE_DB' ? `this.applyTenantFilter((global as any).tenantId);` : ''}
@@ -61,18 +61,18 @@ export default class ${className}Page extends NPage {
                     <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200">
                         <h3 className="font-bold mb-4">Formulário</h3>
                         <div className="space-y-4">
-                           ${table.fields.filter(f => !f.isPrimary && f.name !== 'tenantId').map(f => this.renderWidget(f)).join('\n                           ')}
+                           ${table.fields.filter((f: Field) => !f.isPrimary && f.name !== 'tenantId').map((f: Field) => this.renderWidget(f)).join('\n                           ')}
                         </div>
                     </div>
                     <div className="lg:col-span-3">
                         <NDataGrid 
                             table="${className}"
                             columns={[
-                                ${table.fields.map(f => `{ name: '${f.name}', label: '${f.name.toUpperCase()}', sortable: true }`).join(',\n                                ')}
+                                ${table.fields.map((f: Field) => `{ name: '${f.name}', label: '${f.name.toUpperCase()}', sortable: true }`).join(',\n                                ')}
                             ]}
                             actions={{
-                                 onEdit: (id) => this.form.load(id),
-                                 onDelete: (id) => this.form.delete(id)
+                                 onEdit: (id: string | number) => this.form.load(id),
+                                 onDelete: (id: string | number) => this.form.delete(id)
                             }}
                         />
                     </div>
@@ -80,19 +80,19 @@ export default class ${className}Page extends NPage {
             </NPage>
         );
     }
-
-    private renderWidget(field: any): string {
-        if (field.name.endsWith('_id')) {
-            const model = field.name.replace('_id', '');
-            return \`<NUniqueSearch label="\${field.name}" targetModel="\${model}" targetEndpoint="/api/v1/\${model.toLowerCase()}" displayField="nome" />\`;
-        }
-        return \`<NInput label="\${field.name}" name="\${field.name}" />\`;
-    }
 }
 `;
   }
 
-  generateRepository(table: Table, tenantType: string): string {
+  private renderWidget(field: Field): string {
+    if (field.name.endsWith('_id')) {
+      const model = field.name.replace('_id', '');
+      return `<NUniqueSearch label="${field.name}" targetModel="${model}" targetEndpoint="/api/v1/${model.toLowerCase()}" displayField="nome" />`;
+    }
+    return `<NInput label="${field.name}" name="${field.name}" />`;
+  }
+
+  generateRepository(table: Table, _tenantType: string): string {
     return `// Repository gerado automaticamente (deprecated com uso do RuntimeCRUD, mas mantido para customizações)
 export class ${table.name}Repository {}`;
   }
