@@ -1,0 +1,43 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/multipart": "^9.4.0",
+    "@fastify/static": "^9.0.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.5",
+    "@prisma/client": "^5.22.0",
+    "adm-zip": "^0.5.16",
+    "csv-parse": "^6.1.0",
+    "dockerode": "^4.0.9",
+    "fastify": "^5.7.4",
+    "firebase-admin": "^13.6.1",
+    "knex": "^3.1.0",
+    "mysql2": "^3.16.3",
+    "pg": "^8.18.0",
+    "prisma": "^5.22.0",
+    "string-similarity": "^4.0.4",
+    "tar": "^7.5.7",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/csv-parse": "^1.2.5",
+    "@types/dockerode": "^4.0.1",
+    "@types/node": "^25.2.3",
+    "@types/string-similarity": "^4.0.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
