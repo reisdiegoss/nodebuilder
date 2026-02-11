@@ -48,15 +48,16 @@ export const NInput = ({ label, placeholder, value, onChange, type = 'text', nam
     );
 };
 
-export const NPassword = ({ label, onChange }: any) => {
+export const NPassword = ({ label, onChange, name, value }: any) => {
     const [show, setShow] = useState(false);
     return (
-        <div className="space-y-1.5 w-full relative">
+        <div className="flex flex-col gap-1.5 w-full">
             <label className="text-sm font-semibold text-zinc-400">{label}</label>
             <div className="relative">
                 <input
                     type={show ? 'text' : 'password'}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 pr-11 text-white focus:ring-2 focus:ring-brand-blue outline-none"
+                    value={value}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 pr-11 text-zinc-100 focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
                     onChange={(e) => onChange?.(e.target.value)}
                 />
                 <button
@@ -67,33 +68,34 @@ export const NPassword = ({ label, onChange }: any) => {
                     {show ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
             </div>
+            <FieldError name={name || label} />
         </div>
     );
 };
 
-export const NDate = ({ label, onChange }: any) => (
-    <div className="space-y-1.5 w-full">
+export const NDate = ({ label, onChange, name, value }: any) => (
+    <div className="flex flex-col gap-1.5 w-full">
         <label className="text-sm font-semibold text-zinc-400">{label}</label>
         <div className="relative">
             <input
                 type="date"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 pl-11 text-white focus:ring-2 focus:ring-brand-blue outline-none"
-                onChange={(e) => {
-                    const val = e.target.value; // YYYY-MM-DD
-                    onChange?.(val);
-                }}
+                value={value}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 pl-11 text-zinc-100 focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
+                onChange={(e) => onChange?.(e.target.value)}
             />
             <Calendar className="absolute left-3 top-3 text-zinc-500" size={18} />
         </div>
+        <FieldError name={name || label} />
     </div>
 );
 
-export const NSelect = ({ label, options, onChange }: any) => (
-    <div className="space-y-1.5 w-full">
+export const NSelect = ({ label, options, onChange, name, value }: any) => (
+    <div className="flex flex-col gap-1.5 w-full">
         <label className="text-sm font-semibold text-zinc-400">{label}</label>
         <div className="relative">
             <select
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 appearance-none text-white focus:ring-2 focus:ring-brand-blue outline-none cursor-pointer"
+                value={value}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 appearance-none text-zinc-100 focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none cursor-pointer transition-all"
                 onChange={(e) => onChange?.(e.target.value)}
             >
                 <option value="">Selecione...</option>
@@ -101,6 +103,7 @@ export const NSelect = ({ label, options, onChange }: any) => (
             </select>
             <ChevronDown className="absolute right-3 top-3 text-zinc-500 pointer-events-none" size={18} />
         </div>
+        <FieldError name={name || label} />
     </div>
 );
 
@@ -153,7 +156,7 @@ export const NUniqueSearch = ({ label, targetTable, onSelect, value, name }: any
     );
 };
 
-export const NFile = ({ label, onUpload }: any) => {
+export const NFile = ({ label, onUpload, name }: any) => {
     const [preview, setPreview] = useState<string | null>(null);
 
     const handleFile = (e: any) => {
@@ -165,7 +168,7 @@ export const NFile = ({ label, onUpload }: any) => {
     };
 
     return (
-        <div className="space-y-1.5 w-full">
+        <div className="flex flex-col gap-1.5 w-full">
             <label className="text-sm font-semibold text-zinc-400">{label}</label>
             <div className="relative group">
                 <input
@@ -175,13 +178,14 @@ export const NFile = ({ label, onUpload }: any) => {
                 />
                 <div className="border-2 border-dashed border-zinc-800 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 bg-zinc-900 group-hover:border-brand-blue/50 transition-all">
                     {preview ? (
-                        <img src={preview} className="w-24 h-24 object-cover rounded-xl shadow-lg" alt="Preview" />
+                        <img src={preview} className="w-24 h-24 object-cover rounded-xl shadow-lg border border-zinc-700" alt="Preview" />
                     ) : (
                         <FileUp className="text-zinc-500 group-hover:text-brand-blue transition-colors" size={40} />
                     )}
-                    <span className="text-xs text-zinc-500 font-medium">Arraste registros ou clique para upload</span>
+                    <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">Upload Arquivo</span>
                 </div>
             </div>
+            <FieldError name={name || label} />
         </div>
     );
 };
@@ -191,6 +195,8 @@ export const NFile = ({ label, onUpload }: any) => {
 export const NDataGrid = ({ title, table, endpoint, columns, onRowClick, actions }: any) => {
     const [data, setData] = useState<any[]>([]);
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [total, setTotal] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
@@ -201,16 +207,17 @@ export const NDataGrid = ({ title, table, endpoint, columns, onRowClick, actions
             setLoading(true);
             try {
                 const sortQuery = sortConfig ? `&sort=${sortConfig.key}&dir=${sortConfig.direction}` : '';
-                const url = endpoint || `/api/v1/${table?.toLowerCase()}?page=${page}&q=${search}${sortQuery}`;
+                const url = endpoint || `/api/v1/${table?.toLowerCase()}?page=${page}&limit=${limit}&q=${search}${sortQuery}`;
                 const res = await fetch(url);
                 const result = await res.json();
 
-                // Suporte a formato paginado ou array simples
                 if (result.data && Array.isArray(result.data)) {
                     setData(result.data);
+                    setTotal(result.total || result.data.length);
                     setTotalPages(result.totalPages || 1);
                 } else if (Array.isArray(result)) {
                     setData(result);
+                    setTotal(result.length);
                     setTotalPages(1);
                 }
             } catch (err) {
@@ -221,7 +228,7 @@ export const NDataGrid = ({ title, table, endpoint, columns, onRowClick, actions
         };
 
         fetchRemote();
-    }, [table, endpoint, page, search, sortConfig]);
+    }, [table, endpoint, page, limit, search, sortConfig]);
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -232,84 +239,101 @@ export const NDataGrid = ({ title, table, endpoint, columns, onRowClick, actions
     };
 
     return (
-        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-full min-h-[400px]">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-full min-h-[500px]">
             {/* Header Pro */}
-            <div className="p-5 border-b border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-900/40">
+            <div className="p-5 border-b border-zinc-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-zinc-900/40">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-brand-blue/10 rounded-lg">
-                        <TableIcon size={20} className="text-brand-blue" />
+                    <div className="p-2.5 bg-brand-blue/10 rounded-xl border border-brand-blue/20">
+                        <TableIcon size={22} className="text-brand-blue" />
                     </div>
                     <div>
-                        <h4 className="font-bold text-lg text-white leading-none">{title || table || 'Listagem'}</h4>
-                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Sincronizado com API</p>
+                        <h4 className="font-bold text-lg text-white leading-none tracking-tight">{title || table || 'Listagem'}</h4>
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            Tempo Real • {total} Registros
+                        </p>
                     </div>
-                    {loading && <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-4 h-4 border-2 border-brand-blue border-t-transparent rounded-full ml-2" />}
+                    {loading && <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-5 h-5 border-2 border-brand-blue border-t-transparent rounded-full ml-2" />}
                 </div>
 
-                <div className="relative flex-1 md:max-w-md flex gap-2">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 text-zinc-500" size={16} />
+                <div className="flex items-center gap-3">
+                    <div className="relative flex-1 md:min-w-[300px]">
+                        <Search className="absolute left-3.5 top-2.5 text-zinc-500" size={18} />
                         <input
                             type="text"
-                            placeholder="Pesquisar..."
+                            placeholder="Buscar em qualquer campo..."
                             value={search}
-                            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-blue/50 transition-all text-white"
+                            className="w-full bg-zinc-900/50 border border-zinc-700/50 rounded-xl pl-11 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all text-white"
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
+                    <select
+                        value={limit}
+                        onChange={(e) => setLimit(Number(e.target.value))}
+                        className="bg-zinc-900 border border-zinc-700/50 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-400 outline-none hover:border-zinc-500 transition-all cursor-pointer"
+                    >
+                        <option value={10}>10 Linhas</option>
+                        <option value={20}>20 Linhas</option>
+                        <option value={50}>50 Linhas</option>
+                    </select>
                 </div>
             </div>
 
-            {/* Viewport da Tabela */}
-            <div className="flex-1 overflow-auto">
-                <table className="w-full text-left text-sm border-collapse min-w-[600px]">
-                    <thead className="bg-zinc-900/80 sticky top-0 z-10 text-zinc-500 uppercase text-[10px] font-black tracking-widest border-b border-zinc-800">
+            {/* Viewport Industrial */}
+            <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+                <table className="w-full text-left text-sm border-collapse min-w-[800px]">
+                    <thead className="bg-zinc-900/80 sticky top-0 z-10 text-zinc-500 uppercase text-[10px] font-black tracking-widest border-b border-zinc-800 backdrop-blur-md">
                         <tr>
                             {columns?.map((col: any) => (
                                 <th
                                     key={col.key}
-                                    className="px-6 py-4 cursor-pointer hover:text-white transition-colors"
+                                    className="px-6 py-5 cursor-pointer hover:bg-zinc-800/10 hover:text-white transition-colors group"
                                     onClick={() => handleSort(col.key)}
                                 >
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2.2">
                                         {col.label}
-                                        {sortConfig?.key === col.key && (
-                                            <Filter size={10} className={cn("text-brand-blue", sortConfig.direction === 'desc' && "rotate-180")} />
-                                        )}
+                                        <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Filter size={10} className={cn(
+                                                "text-zinc-600",
+                                                sortConfig?.key === col.key && "text-brand-blue",
+                                                sortConfig?.key === col.key && sortConfig?.direction === 'desc' && "rotate-180"
+                                            )} />
+                                        </div>
                                     </div>
                                 </th>
                             ))}
-                            {(actions || onRowClick) && <th className="px-6 py-4 text-right">Ações</th>}
+                            {(actions || onRowClick) && <th className="px-6 py-5 text-right font-black">Gerenciar</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-900/50">
                         {data.length > 0 ? data.map((row: any, i: number) => (
                             <motion.tr
                                 key={i}
-                                initial={{ opacity: 0, y: 5 }}
+                                initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.03 }}
+                                transition={{ delay: i * 0.02 }}
+                                onClick={() => onRowClick?.(row)}
                                 className={cn(
-                                    "hover:bg-brand-blue/5 transition-all group border-l-2 border-transparent",
-                                    onRowClick ? "cursor-pointer hover:border-brand-blue" : ""
+                                    "hover:bg-brand-blue/[0.03] transition-all group border-l-4 border-transparent active:bg-brand-blue/10",
+                                    onRowClick ? "cursor-pointer hover:border-brand-blue shadow-inner" : ""
                                 )}
                             >
                                 {columns?.map((col: any) => (
-                                    <td key={col.key} className="px-6 py-4 text-zinc-300 font-medium whitespace-nowrap">
-                                        {row[col.key] || '-'}
+                                    <td key={col.key} className="px-6 py-4.5 text-zinc-300 font-medium whitespace-nowrap">
+                                        {row[col.key] || <span className="text-zinc-700 italic">vazio</span>}
                                     </td>
                                 ))}
                                 {(actions || onRowClick) && (
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end items-center gap-1">
+                                    <td className="px-6 py-4.5 text-right">
+                                        <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity translate-x-1 group-hover:translate-x-0">
                                             {onRowClick && (
-                                                <button onClick={() => onRowClick(row)} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-brand-blue transition-all">
-                                                    <Edit2 size={14} />
+                                                <button onClick={() => onRowClick(row)} className="p-2.5 hover:bg-brand-blue/10 rounded-xl text-zinc-500 hover:text-brand-blue transition-all border border-transparent hover:border-brand-blue/20">
+                                                    <Edit2 size={16} />
                                                 </button>
                                             )}
                                             {actions?.map((act: any, idx: number) => (
-                                                <button key={idx} onClick={(e) => { e.stopPropagation(); act.handler(row); }} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-all">
-                                                    {act.icon}
+                                                <button key={idx} onClick={(e) => { e.stopPropagation(); act.handler(row); }} className="p-2.5 hover:bg-red-500/10 rounded-xl text-zinc-500 hover:text-red-500 transition-all border border-transparent hover:border-red-500/20">
+                                                    {act.icon || <Trash2 size={16} />}
                                                 </button>
                                             ))}
                                         </div>
@@ -318,10 +342,15 @@ export const NDataGrid = ({ title, table, endpoint, columns, onRowClick, actions
                             </motion.tr>
                         )) : (
                             <tr>
-                                <td colSpan={100} className="px-6 py-20 text-center">
-                                    <div className="flex flex-col items-center gap-3 text-zinc-600 italic">
-                                        <TableIcon size={40} className="opacity-20" />
-                                        <span>Nenhum registro encontrado nesta visualização.</span>
+                                <td colSpan={100} className="px-6 py-32 text-center">
+                                    <div className="flex flex-col items-center gap-4 text-zinc-700">
+                                        <div className="p-6 bg-zinc-900/50 rounded-full">
+                                            <TableIcon size={48} className="opacity-10" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-bold uppercase tracking-widest text-zinc-500">Nenhum registro</p>
+                                            <p className="text-xs text-zinc-600 italic">Tente mudar os filtros ou cadastrar um novo item.</p>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -330,39 +359,50 @@ export const NDataGrid = ({ title, table, endpoint, columns, onRowClick, actions
                 </table>
             </div>
 
-            {/* Pagination Pro */}
-            <div className="p-4 border-t border-zinc-800 bg-zinc-900/40 flex items-center justify-between px-6">
-                <div className="flex items-center gap-4">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Total: {data.length} Itens</span>
+            {/* Pagination MadBuilder Style */}
+            <div className="p-5 border-t border-zinc-800 bg-zinc-900/40 flex items-center justify-between px-8">
+                <div className="hidden sm:flex items-center gap-4">
+                    <span className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">
+                        Exibindo {data.length} de {total} itens
+                    </span>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-4">
                     <button
                         disabled={page === 1}
                         onClick={() => setPage(p => p - 1)}
-                        className="p-2 hover:bg-zinc-800 disabled:opacity-20 rounded-lg transition-colors text-zinc-400"
+                        className="p-2.5 hover:bg-zinc-800 disabled:opacity-10 rounded-xl transition-colors text-zinc-400 border border-zinc-800/50"
                     >
-                        <ChevronLeft size={18} />
+                        <ChevronLeft size={20} />
                     </button>
-                    <div className="flex gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                            <button
-                                key={p}
-                                onClick={() => setPage(p)}
-                                className={cn(
-                                    "w-8 h-8 rounded-lg text-xs font-black transition-all",
-                                    page === p ? "bg-brand-blue text-white shadow-lg shadow-brand-blue/20" : "hover:bg-zinc-800 text-zinc-500"
-                                )}
-                            >
-                                {p}
-                            </button>
-                        ))}
+
+                    <div className="flex gap-1.5">
+                        {/* Inteligência de paginação curta */}
+                        {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                            const p = i + 1;
+                            return (
+                                <button
+                                    key={p}
+                                    onClick={() => setPage(p)}
+                                    className={cn(
+                                        "w-10 h-10 rounded-xl text-xs font-black transition-all border",
+                                        page === p
+                                            ? "bg-brand-blue text-white border-brand-blue shadow-lg shadow-brand-blue/30"
+                                            : "bg-zinc-900/50 text-zinc-500 border-zinc-800/50 hover:border-zinc-600"
+                                    )}
+                                >
+                                    {p}
+                                </button>
+                            );
+                        })}
                     </div>
+
                     <button
                         disabled={page >= totalPages}
                         onClick={() => setPage(p => p + 1)}
-                        className="p-2 hover:bg-zinc-800 disabled:opacity-20 rounded-lg transition-colors text-zinc-400"
+                        className="p-2.5 hover:bg-zinc-800 disabled:opacity-10 rounded-xl transition-colors text-zinc-400 border border-zinc-800/50"
                     >
-                        <ChevronRight size={18} />
+                        <ChevronRight size={20} />
                     </button>
                 </div>
             </div>

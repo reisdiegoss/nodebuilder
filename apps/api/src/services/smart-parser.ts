@@ -65,7 +65,7 @@ export default class ${className}Page extends NPage {
                     </button>
                 </header>
 
-                <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+                <div className="grid grid-cols-1 xl:col-span-4 gap-8">
                     <div className="xl:col-span-1 bg-zinc-900 border border-zinc-800 p-6 rounded-3xl space-y-6">
                         <header className="flex justify-between items-center mb-2">
                             <h3 className="text-zinc-400 font-bold uppercase text-xs tracking-widest">Formulário</h3>
@@ -86,7 +86,64 @@ export default class ${className}Page extends NPage {
         );
     }
 }
-`;
+
+    // Helper method for Prisma type mapping, assuming it's needed for convertERDToPrisma
+    // This method is not present in the original code, so it's added as a placeholder.
+    private static mapType(type: string): string {
+        switch (type.toLowerCase()) {
+            case 'string': return 'String';
+            case 'number': return 'Int'; // Assuming integer for number, could be Float/Decimal
+            case 'boolean': return 'Boolean';
+            case 'date': return 'DateTime';
+            case 'uuid': return 'String'; // Prisma uses String for UUID
+            default: return 'String';
+        }
+    }
+
+    static convertERDToPrisma(tables: ERDTable[]): string {
+        let schema = `// NodeBuilder Generated Schema\ndatasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n`;
+
+        tables.forEach(table => {
+            const className = SmartParser.prototype.capitalize(table.name); // Use prototype for static context
+            schema += `model ${className} {\n`;
+
+            table.fields.forEach(field => {
+                let type = SmartParser.mapType(field.type); // Use the static helper
+                let decorators = '';
+
+                if (field.isPrimary) {
+                    decorators += ' @id @default(uuid())';
+                }
+
+                if (field.isNullable && !field.isPrimary) {
+                    type += '?';
+                }
+
+                // Inteligência de Relação (FK) MadBuilder
+                if (field.name.endsWith('_id') && !field.isPrimary) {
+                    const relationName = field.name.replace('_id', '');
+                    const targetModel = SmartParser.prototype.capitalize(relationName); // Use prototype for static context
+                    // Campo FK físico
+                    schema += `  ${field.name} String${field.isNullable ? '?' : ''}\n`;
+                    // Campo de Relação Lógica
+                    schema += `  ${relationName} ${targetModel}${field.isNullable ? '?' : ''} @relation(fields: [${field.name}], references: [id])\n`;
+                    return;
+                }
+
+                schema += `  ${field.name} ${type}${decorators}\n`;
+            });
+
+            // Isolação de Dados Nativa (Blindagem SaaS)
+            schema += `  tenantId String\n`;
+            schema += `  createdAt DateTime @default(now())\n`;
+            schema += `  updatedAt DateTime @updatedAt\n\n`;
+
+            // Índices Pro
+            schema += `  @@index([tenantId])\n`;
+            schema += `}\n\n`;
+        });
+
+        return schema;
     }
 
     private renderModernWidget(field: Field): string {
@@ -124,20 +181,18 @@ export default class ${className}Page extends NPage {
         const className = this.capitalize(table.name);
         const low = table.name.toLowerCase();
 
-        // Injeção de Segurança Pro: Filtro de Isolamento SaaS
-        const tenantFilter = tenantType === 'SINGLE_DB'
-            ? `, where: { tenantId: (global as any).currentTenantId }`
-            : '';
+        // Injeção de Segurança Industrial: Tenant interceptor total
+        const tenantVariable = `(global as any).currentTenantId`;
 
         return `import { prisma } from '../infra/database';
 
 export class ${className}Repository {
-    async findAll(page = 1, search = '', sort?: string, dir?: 'asc' | 'desc') {
-        const take = 20;
+    async findAll(page = 1, limit = 20, search = '', sort?: string, dir?: 'asc' | 'desc') {
+        const take = Math.min(limit, 100);
         const skip = (page - 1) * take;
         
         const where: any = {
-            ${tenantType === 'SINGLE_DB' ? 'tenantId: (global as any).currentTenantId,' : ''}
+            ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable},` : ''}
             ...(search ? { 
                 OR: [
                     ${table.fields.filter(f => f.type === 'string').map(f => `{ ${f.name}: { contains: search, mode: 'insensitive' } }`).join(',\n                    ')}
@@ -150,7 +205,10 @@ export class ${className}Repository {
                 where,
                 take,
                 skip,
-                orderBy: sort ? { [sort]: dir || 'asc' } : { createdAt: 'desc' }
+                orderBy: sort ? { [sort]: dir || 'asc' } : { createdAt: 'desc' },
+                include: {
+                    ${table.fields.filter(f => f.name.endsWith('_id')).map(f => f.name.replace('_id', ': true')).join(',\n                    ')}
+                }
             }),
             prisma.${low}.count({ where })
         ]);
@@ -160,24 +218,36 @@ export class ${className}Repository {
 
     async findById(id: string) {
         return await prisma.${low}.findFirst({
-            where: { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} }
+            where: { 
+                id,
+                ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''}
+            },
+            include: {
+                ${table.fields.filter(f => f.name.endsWith('_id')).map(f => f.name.replace('_id', ': true')).join(',\n                ')}
+            }
         });
     }
 
     async create(data: any) {
         const payload = { ...data };
-        if (!payload.id) payload.id = undefined; // Deixar UUID automático
-        ${tenantType === 'SINGLE_DB' ? "payload.tenantId = (global as any).currentTenantId;" : ""}
+        if (!payload.id) payload.id = undefined;
+        ${tenantType === 'SINGLE_DB' ? `payload.tenantId = ${tenantVariable};` : ""}
         return await prisma.${low}.create({ data: payload });
     }
 
     async update(id: string, data: any) {
-        const where = { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} };
+        const where = { 
+            id,
+            ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''}
+        };
         return await prisma.${low}.updateMany({ where, data });
     }
 
     async delete(id: string) {
-        const where = { id${tenantFilter ? tenantFilter.replace(', where: {', ', tenantId:').replace('}', '') : ''} };
+        const where = { 
+            id,
+            ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''}
+        };
         return await prisma.${low}.deleteMany({ where });
     }
 }

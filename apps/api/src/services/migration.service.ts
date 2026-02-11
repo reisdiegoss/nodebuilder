@@ -37,16 +37,26 @@ export class MigrationService {
                     type += '?';
                 }
 
-                // FK mapping support (se o nome terminar em _id, assume relação - simplificado para este nível)
+                // Inteligência de Relação (FK) MadBuilder @relation
+                if (field.name.endsWith('_id') && !field.isPrimary) {
+                    const relationName = field.name.replace('_id', '');
+                    const targetModel = this.capitalize(relationName);
+                    // Campo FK físico
+                    schema += `  ${field.name} String${field.isNullable ? '?' : ''}\n`;
+                    // Campo de Relação Lógica Prisma
+                    schema += `  ${relationName} ${targetModel}${field.isNullable ? '?' : ''} @relation(fields: [${field.name}], references: [id])\n`;
+                    return;
+                }
+
                 schema += `  ${field.name} ${type}${decorators}\n`;
             });
 
-            // Isolação de Dados (Mandatório para SaaS)
+            // Isolação de Dados Nativa (Blindagem SaaS Industrial)
             schema += `  tenantId String\n`;
             schema += `  createdAt DateTime @default(now())\n`;
             schema += `  updatedAt DateTime @updatedAt\n\n`;
 
-            // Índices de performance
+            // Índices Pro de Performance
             schema += `  @@index([tenantId])\n`;
             schema += `}\n\n`;
         });
