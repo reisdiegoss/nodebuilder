@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 .next/
+arquivos/
 
 # IDE
 .vscode/
