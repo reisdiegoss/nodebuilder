@@ -4,6 +4,8 @@ dist/
 build/
 .next/
 arquivos/
+docs/
+.agent/
 
 # IDE
 .vscode/

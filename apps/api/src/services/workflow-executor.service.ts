@@ -1,8 +1,16 @@
 import { prisma } from '../../../../packages/database/index.js';
 
+/**
+ * Interface que define o contexto de execução em tempo real
+ */
+interface ExecutionContext {
+    data: any; // O payload dinâmico (ex: dados do Pedido criado)
+    flow: { id: string; name: string }; // Metadados do fluxo em execução
+}
+
 export class WorkflowExecutor {
     /**
-     * Executa um workflow completo, passo a passo.
+     * Ponto de entrada principal acionado pelo TriggerSystem.
      */
     static async executeWorkflow(workflowId: string, payload: any) {
         const workflow = await prisma.workflow.findUnique({
@@ -12,16 +20,23 @@ export class WorkflowExecutor {
 
         if (!workflow || !workflow.isActive) return;
 
-        console.log(`⚡ [WorkflowExecutor] Iniciando: ${workflow.name}`);
+        console.log(`⚡ [WorkflowEngine] Iniciando: ${workflow.name}`);
 
-        let context = { ...payload, _timestamp: new Date().toISOString() };
+        const context: ExecutionContext = {
+            data: payload,
+            flow: { id: workflow.id, name: workflow.name }
+        };
 
         for (const step of workflow.steps) {
             try {
-                context = await this.executeStep(step, context);
+                const continueFlow = await this.executeStep(step, context);
+                if (!continueFlow) {
+                    console.log(`⏹️ [Workflow: ${workflow.name}] Fluxo interrompido logicamente.`);
+                    break;
+                }
             } catch (err) {
-                console.error(`❌ [WorkflowExecutor] Erro no passo ${step.type}:`, (err as any).message);
-                break; // Interrompe o workflow em caso de erro crítico no passo
+                console.error(`❌ [Workflow: ${workflow.name}] Erro no passo ${step.type}:`, (err as any).message);
+                break;
             }
         }
     }
@@ -29,7 +44,7 @@ export class WorkflowExecutor {
     /**
      * Executa um passo individual do workflow.
      */
-    private static async executeStep(step: any, context: any): Promise<any> {
+    private static async executeStep(step: any, context: ExecutionContext): Promise<boolean> {
         const config = step.config as any;
         const stepId = `Step:${step.type}:${step.order}`;
 
@@ -37,71 +52,83 @@ export class WorkflowExecutor {
             case 'LOG':
                 const logMsg = this.interpolate(config.message || 'Log do sistema', context);
                 console.log(`📝 [${stepId}] ${logMsg}`);
-                break;
+                return true;
 
             case 'WEBHOOK':
+            case 'HTTP_REQUEST':
                 if (config.url) {
-                    const interpolatedUrl = this.interpolate(config.url, context);
-                    console.log(`🚀 [${stepId}] Enviando para ${interpolatedUrl}`);
+                    const url = this.interpolate(config.url, context);
+                    const method = config.method || 'POST';
+                    console.log(`🚀 [${stepId}] Enviando ${method} para ${url}`);
+
                     try {
-                        const response = await fetch(interpolatedUrl, {
-                            method: config.method || 'POST',
+                        const body = method !== 'GET' ? JSON.stringify(context.data) : undefined;
+                        const response = await fetch(url, {
+                            method,
                             headers: config.headers || { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(context)
+                            body
                         });
 
-                        const data = await response.json().catch(() => ({}));
-                        console.log(`✅ [${stepId}] Resposta recebida.`);
-                        // Adiciona o resultado ao contexto prefixado pelo ID do passo
-                        return { ...context, [`step_${step.order}_result`]: data };
+                        console.log(`✅ [${stepId}] Status: ${response.status}`);
+                        return true;
                     } catch (err) {
-                        console.error(`❌ [${stepId}] Falha no Webhook:`, (err as any).message);
-                        if (config.stopOnError) throw err;
+                        console.error(`❌ [${stepId}] Falha:`, (err as any).message);
+                        return config.stopOnError ? false : true;
                     }
                 }
-                break;
+                return true;
 
             case 'CONDITION':
-                const actualValue = context[config.field] || this.interpolate(`{{${config.field}}}`, context);
-                const expectedValue = config.value;
-                const operator = config.operator || '==';
-
-                console.log(`🔍 [${stepId}] Validando: ${actualValue} ${operator} ${expectedValue}`);
-
-                let success = false;
-                if (operator === '==' || operator === 'equals') success = actualValue == expectedValue;
-                if (operator === '!=') success = actualValue != expectedValue;
-                if (operator === '>') success = Number(actualValue) > Number(expectedValue);
-                if (operator === '<') success = Number(actualValue) < Number(expectedValue);
-
-                if (!success) {
-                    console.log(`🚫 [${stepId}] Condição não atingida. Parando workflow.`);
-                    throw new Error('STOP_WORKFLOW');
-                }
-                break;
+                return this.evaluateCondition(config, context);
 
             case 'ASAAS_PAYMENT':
                 console.log(`💰 [${stepId}] Processando pagamento via Asaas...`);
-                // Lógica de integração viria aqui
-                break;
+                return true;
 
             default:
-                console.warn(`⚠️ [${stepId}] Tipo de passo ignorado.`);
+                console.warn(`⚠️ [${stepId}] Ignorado.`);
+                return true;
         }
-
-        return context;
     }
 
     /**
-     * Resolução recursiva de placeholders {{ user.name }}
+     * Avaliador de Condições Premium
      */
-    private static interpolate(str: string, context: any): string {
-        return str.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (match, path) => {
-            const value = path.split('.').reduce((obj: any, key: string) => {
-                if (obj === null || obj === undefined) return undefined;
-                return obj[key];
-            }, context);
-            return value !== undefined ? String(value) : match;
+    private static evaluateCondition(config: any, context: ExecutionContext): boolean {
+        const fieldPath = config.field || config.fieldPath;
+        const actualValue = this.resolvePath(fieldPath, context);
+        const expectedValue = config.value || config.valueToCompare;
+        const operator = config.operator || '==';
+
+        const a = isNaN(Number(actualValue)) ? actualValue : Number(actualValue);
+        const b = isNaN(Number(expectedValue)) ? expectedValue : Number(expectedValue);
+
+        console.log(`🔍 [Condition] ${a} ${operator} ${b}`);
+
+        switch (operator) {
+            case '==': return a == b;
+            case '!=': return a != b;
+            case '>': return a > b;
+            case '<': return a < b;
+            case '>=': return a >= b;
+            case '<=': return a <= b;
+            case 'CONTAINS': return String(a).includes(String(b));
+            default: return false;
+        }
+    }
+
+    /**
+     * Resolução recursiva de placeholders {{ data.pedido.total }}
+     */
+    private static interpolate(template: string, context: any): string {
+        return template.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (match, path) => {
+            const value = this.resolvePath(path, context);
+            return value !== undefined && value !== null ? String(value) : match;
         });
+    }
+
+    private static resolvePath(path: string, obj: any): any {
+        if (!path || !obj) return undefined;
+        return path.split('.').reduce((acc, part) => acc && acc[part], obj);
     }
 }
