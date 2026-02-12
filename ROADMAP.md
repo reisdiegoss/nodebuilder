@@ -27,12 +27,18 @@
 - [ ] Importador Inteligente (Excel/CSV).
 - [ ] Gestão Avançada de Webhooks e API Generator.
 
-## Fase 4 (Enterprise Suite Widgets) - [INICIADO]
+## Fase 4 (Enterprise Suite Widgets) - [CONCLUÍDO]
 
-- [ ] **NMaskedInput**: Suporte a máscaras CPF/CNPJ/Fone/BRL.
-- [ ] **NTabs**: Organização de formulários complexos.
-- [ ] **NChart**: Dashboards com Recharts.
-- [ ] **NUpload**: Upload de arquivos com Preview.
-- [ ] **NKanban**: Gestão visual de workflows.
-- [ ] **NRichText**: Editor WYSIWYG.
-- [ ] **NToast**: Notificações sistema.
+- [x] **NMaskedInput**: Suporte a máscaras CPF/CNPJ/Fone/BRL.
+- [x] **NTabs**: Organização de formulários complexos.
+- [x] **NChart**: Dashboards com SVG Nativo (Barra e Linha).
+- [x] **NUpload**: Upload de arquivos com Preview.
+- [x] **NToast**: Sistema de feedback visual premium.
+- [x] **NDynamicMenu**: Navegação estruturada baseada em metadados.
+- [x] **RBAC Visual**: Controle de acesso por Roles e Permissões no banco.
+
+## Fase 5 (Low-Code Automation) - [PRÓXIMA FASE]
+
+- [ ] Flow Builder: Interface visual para automação de regras de negócio.
+- [ ] Designer de PDF: Gerador de relatórios visuais.
+- [ ] Integração AI: Geração de telas e lógica via linguagem natural (v2).

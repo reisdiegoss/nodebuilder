@@ -12,9 +12,14 @@
 - Geração dinâmica de Swagger CRUD para todas as tabelas ERD.
 - Documentação mandatória: CHANGELOG, GUIA TÉCNICO, GUIA DE REFERÊNCIA e ROADMAP.
 - Criado script `github.bat` para automação de commits e push.
-- **CONSOLIDAÇÃO PREMIUM**: Paridade 100% com MadBuilder atingida.
-- Refactor `NDataGrid` Pro: Ordenação, busca avançada e ações fixas.
-- Refactor `NUniqueSearch` e `NDBSelect`: Suporte total a relacionamentos estrangeiros (FK).
-- `NForm` Pro: Feedback visual de erro por campo baseado em validação Zod.
-- A "Ponte de Ouro": Automação ERD -> Banco Real funcional via Docker Sync.
-- SmartParser Pro: Injeção automática de `where: { tenantId }` para isolamento SaaS.
+
+## [1.2.0] - 2026-02-11
+
+### Adicionado
+
+- **Enterprise Suite Widgets**: Lançamento de `NMaskedInput`, `NTabs`, `NChart` (SVG), `NUpload` Pro e `NToast`.
+- **RBAC Visual**: Sistema de permissões granular com modelos `Role` e `Permission` integrados ao tenant.
+- **Menu Builder Dinâmico**: Navegação lateral (`NDynamicMenu`) gerada sob demanda via API filtrada por permissões.
+- **NLayout Pro**: Refatoração do layout base para incluir sidebar dinâmica e área de trabalho Enterprise.
+- **AuthService Integration**: Signup automatizado com criação de `Role` ADMINISTRADOR e vinculação de segurança.
+- **NodeBuilder Platform**: Transição de "Gerador de CRUD" para "Plataforma Low-Code" com infraestrutura de segurança industrial.

@@ -17,18 +17,27 @@ export class AuthService {
             } as any
         });
 
-        // 2. Criar o Usuário Administrador (Via Repository)
+        // 2. Criar a Role de ADMIN para este Tenant
+        const adminRole = await prisma.role.create({
+            data: {
+                name: 'Administrador',
+                slug: `${tenant.id}-admin`,
+                tenantId: tenant.id
+            }
+        });
+
+        // 3. Criar o Usuário Administrador (Via Repository)
         const hashedPassword = data.password ? crypto.createHash('sha256').update(data.password).digest('hex') : null;
 
         const user = await userRepository.create({
             email: data.email,
             name: data.name,
             password: hashedPassword,
-            role: 'ADMIN',
+            roleId: adminRole.id,
             tenantId: tenant.id
         });
 
-        return { tenant, user };
+        return { tenant, user, role: adminRole };
     }
 
     /**

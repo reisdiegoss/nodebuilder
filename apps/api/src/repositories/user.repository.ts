@@ -30,7 +30,7 @@ export class UserRepository {
         name: string | null,
         password?: string | null,
         firebaseId?: string | null,
-        role: string,
+        roleId: string,
         tenantId: string
     }): Promise<User & { tenant: Tenant }> {
         return await prisma.user.create({
@@ -39,7 +39,7 @@ export class UserRepository {
                 name: data.name,
                 password: data.password || undefined,
                 firebaseId: data.firebaseId || null,
-                role: data.role,
+                roleId: data.roleId,
                 tenantId: data.tenantId
             } as any,
             include: { tenant: true }
