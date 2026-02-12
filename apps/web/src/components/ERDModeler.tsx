@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, Key, Code, X, Download, Plus } from 'lucide-react';
+import { Trash2, Key, Code, X, Plus, Download } from 'lucide-react';
 import { Parser } from '@nodebuilder/engine';
 
 const parser = new Parser();
@@ -66,7 +66,7 @@ export const ERDModeler = () => {
                     case 'date': type = 'DATETIME'; break;
                 }
                 const primaryKey = field.isPrimary ? ' PRIMARY KEY' : '';
-                return `    ${field.name} ${type}${primaryKey}`;
+                return `    ${field.name} ${type}${primaryKey} `;
             }).join(',\n');
             sql += fieldsSql;
             sql += '\n);\n\n';
@@ -77,7 +77,8 @@ export const ERDModeler = () => {
     const generatePrismaSchema = (tables: Table[]): string => {
         let prismaSchema = '';
         tables.forEach(table => {
-            prismaSchema += `model ${table.name} {\n`;
+            prismaSchema += `model ${table.name} {
+\n`;
             const fieldsPrisma = table.fields.map(field => {
                 let type = '';
                 switch (field.type) {
@@ -87,7 +88,7 @@ export const ERDModeler = () => {
                     case 'date': type = 'DateTime'; break;
                 }
                 const primaryKey = field.isPrimary ? ' @id' : '';
-                return `  ${field.name} ${type}${primaryKey}`;
+                return `  ${field.name} ${type}${primaryKey} `;
             }).join('\n');
             prismaSchema += fieldsPrisma;
             prismaSchema += '\n}\n\n';

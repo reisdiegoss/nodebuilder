@@ -170,6 +170,7 @@ model Workflow {
   targetModel     String         // Ex: "Pedido", "Cliente"
   triggerEvent    String         // ON_CREATE, ON_UPDATE, ON_DELETE
   isActive        Boolean        @default(true)
+  config          Json?          // Armazena o grafo visual (React Flow)
   tenantId        String
   projectId       String
   project         Project        @relation(fields: [projectId], references: [id])

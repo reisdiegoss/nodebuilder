@@ -25,8 +25,43 @@ export const WorkflowDesigner: React.FC = () => {
         loadWorkflows();
     }, []);
 
+    /**
+     * Converte o grafo visual em uma lista linear de passos para o backend.
+     */
+    const graphToSteps = (nodes: any[], edges: any[]) => {
+        const steps: any[] = [];
+        const triggerNode = nodes.find(n => n.type === 'trigger');
+        if (!triggerNode) return [];
+
+        let currentNode = triggerNode;
+        let order = 0;
+
+        // Caminhando pelo grafo seguindo as arestas (simplificado: seguindo a primeira conexão de cada nó)
+        while (currentNode) {
+            const edge = edges.find(e => e.source === currentNode.id);
+            if (!edge) break;
+
+            const nextNode = nodes.find(n => n.id === edge.target);
+            if (!nextNode || nextNode.type === 'trigger') break;
+
+            steps.push({
+                type: nextNode.data.type || (nextNode.id.includes('webhook') ? 'WEBHOOK' : 'LOG'),
+                config: nextNode.data.config || {},
+                order: order++
+            });
+
+            currentNode = nextNode;
+            // Evitar loops infinitos se o usuário conectar o nó nele mesmo
+            if (steps.length > 50) break;
+        }
+
+        return steps;
+    };
+
     const handleSave = async (flow: any) => {
         setLoading(true);
+        const steps = graphToSteps(flow.nodes, flow.edges);
+
         try {
             await fetch('http://localhost:3000/workflows', {
                 method: 'POST',
@@ -37,10 +72,11 @@ export const WorkflowDesigner: React.FC = () => {
                     triggerEvent: 'ON_CREATE',
                     projectId: 'default',
                     tenantId: 'system',
-                    config: flow // Salvando o grafo completo para remontar a UI
+                    config: flow, // Grafo visual
+                    steps: steps  // Lista linear de execução
                 })
             });
-            alert('Automação salva com sucesso no banco de dados!');
+            alert('Automação salva e passos gerados com sucesso!');
         } catch (err) {
             alert('Erro ao salvar no servidor.');
         } finally {
