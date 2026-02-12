@@ -16,6 +16,7 @@ import { importerService } from './services/importer.service.js';
 import { AsaasService } from './services/asaas.service.js';
 import { AuditRepository } from './repositories/audit.repository.js';
 import { ExportService } from './services/export.service.js';
+import { workflowRepository } from './repositories/workflow.repository.js';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -198,6 +199,27 @@ const start = async () => {
         fastify.post('/billing/pay', async (request) => {
             const { tenantId } = request.body as any;
             return await InternalBillingService.createPaymentIntent(tenantId);
+        });
+
+        // Rotas de Workflows (Low-Code Automation)
+        fastify.get('/workflows', async (request) => {
+            const projectId = (request.query as any).projectId;
+            return await workflowRepository.findAllByProject(projectId);
+        });
+
+        fastify.get('/workflows/:id', async (request) => {
+            const { id } = request.params as any;
+            return await workflowRepository.findById(id);
+        });
+
+        fastify.post('/workflows', async (request) => {
+            const body = request.body as any;
+            return await workflowRepository.upsert(body);
+        });
+
+        fastify.delete('/workflows/:id', async (request) => {
+            const { id } = request.params as any;
+            return await workflowRepository.delete(id);
         });
 
         // Rotas de Autenticação

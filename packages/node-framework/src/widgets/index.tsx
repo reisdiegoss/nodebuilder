@@ -6,6 +6,7 @@ export * from './NUniqueSearch';
 export * from './NMaskedInput';
 export * from './NTabs';
 export * from './NDynamicMenu';
+export * from './NFlowBuilder';
 export * from './NChart';
 export * from './NUpload';
 export * from './NToast';

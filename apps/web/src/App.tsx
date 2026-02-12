@@ -9,13 +9,15 @@ import {
   Wand2,
   ChevronRight,
   Plus,
-  Play
+  Play,
+  Zap // Added Zap for automation
 } from 'lucide-react'
 
 import { ERDModeler } from './components/ERDModeler.tsx';
 import { CRUDWizard } from './components/CRUDWizard.tsx';
 import { AdminPanel } from './components/AdminPanel.tsx';
 import { ModuleListing } from './components/ModuleListing.tsx';
+import { WorkflowDesigner } from './components/WorkflowDesigner.tsx';
 
 function App() {
   const [activeTab, setActiveTab] = useState('database')
@@ -34,6 +36,7 @@ function App() {
           <SidebarIcon icon={<Layout size={20} />} active={activeTab === 'pages'} onClick={() => setActiveTab('pages')} />
           <SidebarIcon icon={<Boxes size={20} />} active={activeTab === 'modules'} onClick={() => setActiveTab('modules')} />
           <SidebarIcon icon={<Wand2 size={20} />} active={activeTab === 'wizard'} onClick={() => setActiveTab('wizard')} />
+          <SidebarIcon icon={<Zap size={20} />} active={activeTab === 'automation'} onClick={() => setActiveTab('automation')} />
           <SidebarIcon icon={<Shield size={20} />} active={activeTab === 'admin'} onClick={() => setActiveTab('admin')} />
         </nav>
 
@@ -85,6 +88,7 @@ function App() {
           {activeTab === 'wizard' && <CRUDWizard />}
           {activeTab === 'modules' && <ModuleListing />}
           {activeTab === 'admin' && <AdminPanel />}
+          {activeTab === 'automation' && <WorkflowDesigner />}
           {activeTab === 'dashboard' && (
             <div className="p-8 text-zinc-500 text-center mt-20">Seu Dashboard aparecerá aqui em breve.</div>
           )}
