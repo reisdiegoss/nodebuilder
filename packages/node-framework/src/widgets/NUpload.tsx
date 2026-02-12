@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { FileUp, X, FileText, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { FileUp, FileText, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import { FieldError } from './NFormContainer';

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import {
     ReactFlow,
     Background,
@@ -8,12 +8,12 @@ import {
     useEdgesState,
     addEdge,
     Handle,
-    NodeProps,
-    Edge,
-    Connection
+    type NodeProps,
+    type Edge,
+    type Connection
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Zap, Send, FileText, ChevronRight, Settings } from 'lucide-react';
+import { Zap, Send, FileText, Settings } from 'lucide-react';
 import { cn } from '../utils';
 
 /**
@@ -117,7 +117,6 @@ export const NFlowBuilder: React.FC<NFlowBuilderProps> = ({
                     />
                 </ReactFlow>
 
-                {/* Sidebar de Elementos (Mock) */}
                 <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
                     <div className="bg-white/80 backdrop-blur-md p-2 rounded-2xl shadow-xl border border-white flex flex-col gap-1">
                         <NodeButton icon={<Zap size={14} />} label="Trigger" color="text-amber-500" />
