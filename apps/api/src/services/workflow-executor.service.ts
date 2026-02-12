@@ -122,17 +122,46 @@ export class WorkflowExecutor {
     }
 
     /**
-     * Resolução recursiva de placeholders {{ data.pedido.total }}
+     * Resolução recursiva de placeholders {{ data.pedido.total }} com casting automático de tipos.
      */
-    private static interpolate(template: string, context: any): string {
+    private static interpolate(template: string, context: any): any {
+        if (typeof template !== 'string') return template;
+
+        // Se o template for EXATAMENTE um placeholder unico (ex: "{{data.id}}"), tentamos o casting
+        const singleMatch = template.match(/^\{\{\s*([\w\.]+)\s*\}\}$/);
+        if (singleMatch) {
+            const rawValue = this.resolvePath(singleMatch[1], context);
+            return this.autoCast(rawValue);
+        }
+
+        // Caso contrário, tratamos como interpolação de string comum
         return template.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (match, path) => {
             const value = this.resolvePath(path, context);
             return value !== undefined && value !== null ? String(value) : match;
         });
     }
 
+    /**
+     * Tenta converter strings para tipos primitivos (Number/Boolean).
+     */
+    private static autoCast(val: any): any {
+        if (typeof val !== 'string') return val;
+
+        if (val.toLowerCase() === 'true') return true;
+        if (val.toLowerCase() === 'false') return false;
+
+        const num = Number(val);
+        if (!isNaN(num) && val.trim() !== '') return num;
+
+        return val;
+    }
+
     private static resolvePath(path: string, obj: any): any {
         if (!path || !obj) return undefined;
-        return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+        try {
+            return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+        } catch (err) {
+            return undefined;
+        }
     }
 }

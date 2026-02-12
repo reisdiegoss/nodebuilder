@@ -71,11 +71,11 @@ export const WorkflowDesigner: React.FC = () => {
                     triggerEvent: 'ON_CREATE',
                     projectId: 'default',
                     tenantId: 'system',
-                    config: { nodes, edges }, // Grafo visual
-                    steps: compiledSteps // Fila linear compilada
+                    definition: { nodes, edges }, // Grafo visual (Nodes + Edges)
+                    steps: compiledSteps // Fila linear compilada para execução
                 })
             });
-            alert('Workflow salvo com sucesso!');
+            alert('Workflow (Grafo + Steps) consolidado com sucesso!');
         } catch (err) {
             alert('Erro ao salvar no servidor.');
         } finally {
