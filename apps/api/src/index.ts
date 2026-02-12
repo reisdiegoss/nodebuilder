@@ -83,6 +83,12 @@ const start = async () => {
             return await projectRepository.findAllByTenant(tenantId);
         });
 
+        fastify.post('/projects', async (request) => {
+            const body = request.body as any;
+            const tenantId = (request as any).tenantId;
+            return await projectRepository.create({ ...body, tenantId });
+        });
+
         fastify.post('/projects/deploy', async (request, reply) => {
             const { projectName } = request.body as any;
             const tenantId = (request as any).tenantId;
@@ -104,6 +110,42 @@ const start = async () => {
             } catch (err) {
                 fastify.log.error(err);
                 return reply.status(500).send({ error: 'Falha ao orquestrar Swarm Service' });
+            }
+        });
+
+        // Orquestrador de Lançamento (Launch Wizard)
+        fastify.post('/projects/:id/launch', async (request, reply) => {
+            const { id } = request.params as any;
+            const tenantId = (request as any).tenantId;
+            const tenantSlug = (request as any).resolvedTenant?.slug || 'default';
+
+            try {
+                // 1. Buscar Projeto e Tabelas
+                const project = await projectRepository.findById(id);
+                if (!project) return reply.status(404).send({ error: 'Projeto não encontrado' });
+
+                // MOCK: Tabelas viriam do Modeler salvo no banco ou enviadas no body
+                const { tables } = request.body as any;
+
+                // 2. Gerar Código
+                const smartParser = new SmartParser();
+                const files = smartParser.generateProject(project.name, tenantSlug, project.name, tables || []);
+
+                // 3. Criar Container/Serviço
+                const service = await dockerService.createSwarmService(project.name, tenantId);
+
+                // 4. Sincronizar Arquivos
+                const syncData = Object.entries(files).map(([path, content]) => ({ path, content }));
+                await dockerService.syncFiles(service.id, syncData);
+
+                return {
+                    status: 'success',
+                    url: `http://localhost:${service.port}`,
+                    serviceId: service.id
+                };
+            } catch (err) {
+                fastify.log.error(err);
+                return reply.status(500).send({ error: 'Falha no Launch do projeto' });
             }
         });
 

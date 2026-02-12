@@ -5,24 +5,24 @@
  */
 export class ApiRouteGenerator {
 
-    public static generateRoutes(modules: any[]): string {
-        const imports = `
+  public static generateRoutes(modules: any[]): string {
+    const imports = `
 import { FastifyInstance } from 'fastify';
-import { RuntimeCRUDService } from './services/RuntimeCRUDService';
-import { prisma } from './infra/database';
+import { RuntimeCRUDService } from './services/RuntimeCRUDService.js';
+import { prisma } from './infra/database.js';
 `;
 
-        let routes = `
+    let routes = `
 export async function appRoutes(app: FastifyInstance) {
   const runtime = new RuntimeCRUDService(prisma);
 `;
 
-        // Para cada tabela/módulo desenhado, cria as rotas CRUD
-        modules.forEach(mod => {
-            const modelName = mod.name.toLowerCase(); // ex: 'clientes'
-            const modelCapitalized = mod.name; // Presumindo que o nome da tabela venha Capitalized do ERD, senão precisaríamos tratar
+    // Para cada tabela/módulo desenhado, cria as rotas CRUD
+    modules.forEach(mod => {
+      const modelName = mod.name.toLowerCase(); // ex: 'clientes'
+      const modelCapitalized = mod.name; // Presumindo que o nome da tabela venha Capitalized do ERD, senão precisaríamos tratar
 
-            routes += `
+      routes += `
   // Rotas para o módulo: ${mod.name}
   
   // 1. Listagem para NDataGrid
@@ -75,9 +75,9 @@ export async function appRoutes(app: FastifyInstance) {
      return { success: true };
   });
 `;
-        });
+    });
 
-        routes += `\n}`;
-        return imports + routes;
-    }
+    routes += `\n}`;
+    return imports + routes;
+  }
 }

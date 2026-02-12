@@ -1,7 +1,7 @@
-import { OOPEngineService } from './oop-engine.service';
-import { BoilerplateService } from './boilerplate.service';
-import { ApiRouteGenerator } from './api-route-generator';
-import type { Table, Field, WebhookDefinition } from './oop-engine.service';
+import { OOPEngineService } from './oop-engine.service.js';
+import { BoilerplateService } from './boilerplate.service.js';
+import { ApiRouteGenerator } from './api-route-generator.js';
+import type { Table, Field, WebhookDefinition } from './oop-engine.service.js';
 
 /**
  * Refatoração Integral do Motor de Geração (Parser 2.0)
@@ -37,7 +37,6 @@ export class SmartParser extends OOPEngineService {
 
     public generateModernNPage(table: Table, projectConfig: any): string {
         const className = this.capitalize(table.name);
-        // Suporte a diferentes formatos de config
         const isSingleDb = projectConfig?.multiTenantType === 'SINGLE_DB' || projectConfig === 'SINGLE_DB';
 
         return `import React from 'react';
@@ -97,27 +96,28 @@ export default class ${className}Page extends NPage {
             </div>
         );
     }
+}`;
+    }
 
-    private renderIndustrialWidget(field: any): string {
-        // FK Detection MadBuilder
+    private renderIndustrialWidget(field: Field): string {
         if (field.name.endsWith('_id')) {
             const model = field.name.replace('_id', '');
-            return \`<NUniqueSearch 
-                                label="\${field.name.toUpperCase()}" 
-                                targetModel="\${model}" 
-                                targetEndpoint="/api/v1/\${model.toLowerCase()}" 
+            return `<NUniqueSearch 
+                                label="${field.name.toUpperCase()}" 
+                                targetModel="${model}" 
+                                targetEndpoint="/api/v1/${model.toLowerCase()}" 
                                 displayField="nome" 
-                            />\`;
+                            />`;
         }
-        return \`<NInput label="\${field.name.toUpperCase()}" name="\${field.name}" />\`;
+        return `<NInput label="${field.name.toUpperCase()}" name="${field.name}" />`;
     }
 
     public static convertERDToPrisma(tables: any[]): string {
-        let schema = \`// NodeBuilder Generated Schema\\ndatasource db {\\n  provider = "postgresql"\\n  url      = env("DATABASE_URL")\\n}\\n\\ngenerator client {\\n  provider = "prisma-client-js"\\n}\\n\\n\`;
+        let schema = `// NodeBuilder Generated Schema\ndatasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n`;
 
         tables.forEach(table => {
             const className = SmartParser.prototype.capitalize(table.name);
-            schema += \`model \${className} {\\n\`;
+            schema += `model ${className} {\n`;
 
             table.fields.forEach((field: any) => {
                 let type = SmartParser.mapType(field.type);
@@ -134,19 +134,19 @@ export default class ${className}Page extends NPage {
                 if (field.name.endsWith('_id') && !field.isPrimary) {
                     const relationName = field.name.replace('_id', '');
                     const targetModel = SmartParser.prototype.capitalize(relationName);
-                    schema += \`  \${field.name} String\${field.isNullable ? '?' : ''}\\n\`;
-                    schema += \`  \${relationName} \${targetModel}\${field.isNullable ? '?' : ''} @relation(fields: [\${field.name}], references: [id])\\n\`;
+                    schema += `  ${field.name} String${field.isNullable ? '?' : ''}\n`;
+                    schema += `  ${relationName} ${targetModel}${field.isNullable ? '?' : ''} @relation(fields: [${field.name}], references: [id])\n`;
                     return;
                 }
 
-                schema += \`  \${field.name} \${type}\${decorators}\\n\`;
+                schema += `  ${field.name} ${type}${decorators}\n`;
             });
 
-            schema += \`  tenantId String\\n\`;
-            schema += \`  createdAt DateTime @default(now())\\n\`;
-            schema += \`  updatedAt DateTime @updatedAt\\n\\n\`;
-            schema += \`  @@index([tenantId])\\n\`;
-            schema += \`}\${'\\n'}\`;
+            schema += `  tenantId String\n`;
+            schema += `  createdAt DateTime @default(now())\n`;
+            schema += `  updatedAt DateTime @updatedAt\n\n`;
+            schema += `  @@index([tenantId])\n`;
+            schema += `}\n`;
         });
 
         return schema;
@@ -166,68 +166,68 @@ export default class ${className}Page extends NPage {
     private generateModernRepository(table: Table, tenantType: string): string {
         const className = this.capitalize(table.name);
         const low = table.name.toLowerCase();
-        const tenantVariable = \`(global as any).currentTenantId\`;
+        const tenantVariable = `(global as any).currentTenantId`;
 
-        return \`import { prisma } from '../infra/database';
+        return `import { prisma } from '../infra/database.js';
 
-export class \${className}Repository {
+export class ${className}Repository {
     async findAll(page = 1, limit = 20, search = '', sort?: string, dir?: 'asc' | 'desc') {
         const take = Math.min(limit, 100);
         const skip = (page - 1) * take;
         
         const where: any = {
-            \${tenantType === 'SINGLE_DB' ? \`tenantId: \${tenantVariable},\` : ''}
+            ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable},` : ''}
             ...(search ? { 
                 OR: [
-                    \${table.fields.filter(f => f.type === 'string').map(f => \`{ \${f.name}: { contains: search, mode: 'insensitive' } }\`).join(',\\n                    ')}
+                    ${table.fields.filter(f => f.type === 'string').map(f => `{ ${f.name}: { contains: search, mode: 'insensitive' } }`).join(',\n                    ')}
                 ]
             } : {})
         };
 
         const [data, total] = await Promise.all([
-            prisma.\${low}.findMany({
+            prisma.${low}.findMany({
                 where,
                 take,
                 skip,
                 orderBy: sort ? { [sort]: dir || 'asc' } : { createdAt: 'desc' },
                 include: {
-                    \${table.fields.filter(f => f.name.endsWith('_id')).map(f => \`\${f.name.replace('_id', '')}: true\`).join(',\\n                    ')}
+                    ${table.fields.filter(f => f.name.endsWith('_id')).map(f => `${f.name.replace('_id', '')}: true`).join(',\n                    ')}
                 }
             }),
-            prisma.\${low}.count({ where })
+            prisma.${low}.count({ where })
         ]);
 
         return { data, total, totalPages: Math.ceil(total / take), page };
     }
 
     async findById(id: string) {
-        return await prisma.\${low}.findFirst({
+        return await prisma.${low}.findFirst({
             where: { 
                 id,
-                \${tenantType === 'SINGLE_DB' ? \`tenantId: \${tenantVariable}\` : ''}
+                ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''}
             }
         });
     }
 
     async create(data: any) {
         const payload = { ...data };
-        \${tenantType === 'SINGLE_DB' ? \`payload.tenantId = \${tenantVariable};\` : ""}
-        return await prisma.\${low}.create({ data: payload });
+        ${tenantType === 'SINGLE_DB' ? `payload.tenantId = ${tenantVariable};` : ""}
+        return await prisma.${low}.create({ data: payload });
     }
 
     async update(id: string, data: any) {
-        return await prisma.\${low}.updateMany({
-            where: { id, \${tenantType === 'SINGLE_DB' ? \`tenantId: \${tenantVariable}\` : ''} },
+        return await prisma.${low}.updateMany({
+            where: { id, ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''} },
             data
         });
     }
 
     async delete(id: string) {
-        return await prisma.\${low}.deleteMany({
-            where: { id, \${tenantType === 'SINGLE_DB' ? \`tenantId: \${tenantVariable}\` : ''} }
+        return await prisma.${low}.deleteMany({
+            where: { id, ${tenantType === 'SINGLE_DB' ? `tenantId: ${tenantVariable}` : ''} }
         });
     }
 }
-\`;
+`;
     }
 }

@@ -1,16 +1,15 @@
-import { OOPEngineService, Table, Field, WebhookDefinition } from './oop-engine.service';
-import { SmartParser } from './smart-parser';
+import { SmartParser } from './smart-parser.js';
 
 /**
  * BoilerplateService: Gerencia as estruturas básicas dos projetos gerados
  */
 export class BoilerplateService {
-    /**
-     * Gera o arquivo src/infra/database.ts com suporte a Triggers e Multi-tenancy
-     */
-    static generateDatabaseConfig(projectId: string, tenantId: string) {
-        return `import { PrismaClient } from '@prisma/client';
-import { createTriggerExtension } from '../../../../apps/api/src/services/trigger.interceptor';
+  /**
+   * Gera o arquivo src/infra/database.ts com suporte a Triggers e Multi-tenancy
+   */
+  static generateDatabaseConfig(projectId: string, tenantId: string) {
+    return `import { PrismaClient } from '@prisma/client';
+import { createTriggerExtension } from './trigger.interceptor.js';
 
 const baseClient = new PrismaClient({
     datasources: { db: { url: process.env.DATABASE_URL } }
@@ -21,13 +20,13 @@ export const prisma = baseClient.$extends(createTriggerExtension('${projectId}')
 
 export default prisma;
 `;
-    }
+  }
 
-    /**
-     * Gera o RuntimeCRUDService para injeção no container
-     */
-    static generateRuntimeCRUDService() {
-        return `import { PrismaClient } from '@prisma/client';
+  /**
+   * Gera o RuntimeCRUDService para injeção no container
+   */
+  static generateRuntimeCRUDService() {
+    return `import { PrismaClient } from '@prisma/client';
 
 /**
  * RuntimeCRUDService
@@ -112,17 +111,17 @@ export class RuntimeCRUDService {
   }
 }
 `;
-    }
+  }
 
-    /**
-     * Gera o servidor principal Fastify com middleware de Tenant
-     */
-    static generateServerMain() {
-        return `import Fastify from 'fastify';
+  /**
+   * Gera o servidor principal Fastify com middleware de Tenant
+   */
+  static generateServerMain() {
+    return `import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
-import { prisma } from './infra/database';
-import { appRoutes } from './routes';
+import { prisma } from './infra/database.js';
+import { appRoutes } from './routes.js';
 
 const app = Fastify({ logger: true });
 
@@ -149,5 +148,5 @@ const start = async () => {
 
 start();
 `;
-    }
+  }
 }

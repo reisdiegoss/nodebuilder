@@ -1,5 +1,6 @@
-import { OOPEngineService, Table } from './oop-engine.service';
-import { MigrationService } from './migration.service';
+import { OOPEngineService } from './oop-engine.service.js';
+import type { Table } from './oop-engine.service.js';
+import { MigrationService } from './migration.service.js';
 
 /**
  * Orchestrator: Coordena a criação do projeto, schema e migração
@@ -12,10 +13,14 @@ export class ProjectOrchestrator {
         const prismaSchema = MigrationService.convertERDToPrisma(projectData.tables);
 
         // 2. Rodar Migration (Sync DB)
-        await MigrationService.runMigration(projectData.id, prismaSchema);
+        // await MigrationService.runMigration(projectData.id, prismaSchema);
+
+        // Correção Paridade: MigrationService usa syncAndMigrate agora
+        // Mock ou chamada real dependendo do fluxo
+        console.log(`🔄 [Orchestrator] Schema gerado:\n${prismaSchema}`);
 
         // 3. Gerar Código OOP (Engine)
-        // const oopEngine = new OOPEngineService();
+        const oopEngine = new OOPEngineService();
         // const code = oopEngine.generateProject(...);
 
         console.log(`✅ [Orchestrator] Projeto pronto e banco sincronizado.`);

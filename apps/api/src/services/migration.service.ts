@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { dockerService } from './docker.service';
+import { dockerService } from './docker.service.js';
 
 export interface ERDTable {
     name: string;
@@ -59,20 +59,11 @@ export class MigrationService {
             'string': 'String',
             'number': 'Int',
             'boolean': 'Boolean',
-            'datetime': 'DateTime'
+            'datetime': 'DateTime',
+            'file': 'String'
         };
-        return types[uiType?.toUpperCase()] || types[uiType] || 'String';
-    }
-
-    private static mapType(type: string): string {
-        const m: any = {
-            string: 'String',
-            number: 'Int',
-            boolean: 'Boolean',
-            date: 'DateTime',
-            file: 'String'
-        };
-        return m[type] || 'String';
+        const upper = uiType?.toUpperCase();
+        return types[upper] || types[uiType] || 'String';
     }
 
     private static capitalize(s: string) {

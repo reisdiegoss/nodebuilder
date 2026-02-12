@@ -1,4 +1,4 @@
-import type { ERDTable } from './migration.service';
+import type { ERDTable } from './migration.service.js';
 
 export class SwaggerService {
     /**

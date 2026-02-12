@@ -1,6 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { RoutingService } from '../services/routing.service.js';
-import { InternalBillingService } from './billing.service.js';
+import { InternalBillingService } from '../services/billing.service.js';
 
 export const tenantMiddleware = async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = (request.headers['x-tenant-id'] as string);

@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { TriggerSystem } from './trigger.system';
+import { TriggerSystem } from './trigger.system.js';
 
 /**
  * TriggerInterceptor: Implementado via Prisma Extension (Moderno)
