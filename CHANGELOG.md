@@ -13,6 +13,16 @@
 - Documentação mandatória: CHANGELOG, GUIA TÉCNICO, GUIA DE REFERÊNCIA e ROADMAP.
 - Criado script `github.bat` para automação de commits e push.
 
+## [1.3.0] - 2026-02-12
+
+### Adicionado
+
+- **Workflow Engine Pro**: Lançamento do motor de execução dinâmica de lógicas de negócio.
+- **Trigger System v2**: Integração total do interceptor de banco de dados com o motor de workflows.
+- **Variavel Interpolation**: Suporte a variáveis dinâmicas em passos de workflow (ex: `{{user.name}}`).
+- **Modern Fetch Integration**: Substituição de dependências externas por `fetch` nativo para maior performance e estabilidade.
+- **Workflow Persistence**: Modelagem robusta no Prisma para automações multi-tenant persistentes.
+
 ## [1.2.0] - 2026-02-11
 
 ### Adicionado

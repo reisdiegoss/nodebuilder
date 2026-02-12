@@ -99,6 +99,7 @@ model Project {
   services        Service[]
   automations     AutomationTrigger[]
   deployments     Deployment[]
+  workflows       Workflow[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -159,4 +160,31 @@ model Deployment {
   project   Project  @relation(fields: [projectId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Low-Code Automation Engine
+model Workflow {
+  id              String         @id @default(uuid())
+  name            String
+  description     String?
+  targetModel     String         // Ex: "Pedido", "Cliente"
+  triggerEvent    String         // ON_CREATE, ON_UPDATE, ON_DELETE
+  isActive        Boolean        @default(true)
+  tenantId        String
+  projectId       String
+  project         Project        @relation(fields: [projectId], references: [id])
+  steps           WorkflowStep[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model WorkflowStep {
+  id          String   @id @default(uuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id])
+  type        String   // WEBHOOK, LOG, CONDITION, SEND_EMAIL, ASAAS_PAYMENT
+  config      Json     // Parâmetros (URL, template, etc.)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

@@ -37,8 +37,9 @@
 - [x] **NDynamicMenu**: Navegação estruturada baseada em metadados.
 - [x] **RBAC Visual**: Controle de acesso por Roles e Permissões no banco.
 
-## Fase 5 (Low-Code Automation) - [PRÓXIMA FASE]
+## Fase 5 (Low-Code Automation) - [CONCLUÍDO]
 
-- [ ] Flow Builder: Interface visual para automação de regras de negócio.
-- [ ] Designer de PDF: Gerador de relatórios visuais.
-- [ ] Integração AI: Geração de telas e lógica via linguagem natural (v2).
+- [x] Motor de Workflow Backend (Executor Passo-a-Passo).
+- [x] Interpolação de Variáveis dinâmicas.
+- [x] Integração com Trigger System (Database Events).
+- [ ] Flow Builder Visual (Frontend - Próximo Ciclo).
