@@ -17,6 +17,7 @@ import { AsaasService } from './services/asaas.service.js';
 import { AuditRepository } from './repositories/audit.repository.js';
 import { ExportService } from './services/export.service.js';
 import { workflowRepository } from './repositories/workflow.repository.js';
+import { WorkflowExecutor } from './services/workflow-executor.service.js';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -220,6 +221,13 @@ const start = async () => {
         fastify.delete('/workflows/:id', async (request) => {
             const { id } = request.params as any;
             return await workflowRepository.delete(id);
+        });
+
+        fastify.post('/workflows/hooks/:id', async (request) => {
+            const { id } = request.params as any;
+            const payload = request.body || {};
+            await WorkflowExecutor.executeWorkflow(id, payload);
+            return { status: 'Workflow triggered' };
         });
 
         // Rotas de Autenticação

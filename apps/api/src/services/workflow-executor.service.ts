@@ -62,11 +62,15 @@ export class WorkflowExecutor {
                     console.log(`🚀 [${stepId}] Enviando ${method} para ${url}`);
 
                     try {
-                        const body = method !== 'GET' ? JSON.stringify(context.data) : undefined;
+                        const rawBody = config.body || context.data;
+                        const interpolatedBody = typeof rawBody === 'string'
+                            ? this.interpolate(rawBody, context)
+                            : JSON.stringify(rawBody);
+
                         const response = await fetch(url, {
                             method,
-                            headers: config.headers || { 'Content-Type': 'application/json' },
-                            body
+                            headers: config.headers ? JSON.parse(this.interpolate(JSON.stringify(config.headers), context)) : { 'Content-Type': 'application/json' },
+                            body: method !== 'GET' ? interpolatedBody : undefined
                         });
 
                         console.log(`✅ [${stepId}] Status: ${response.status}`);

@@ -59,6 +59,7 @@ interface NFlowBuilderProps {
     initialNodes?: any[];
     initialEdges?: any[];
     onSave?: (data: { nodes: any[], edges: any[] }) => void;
+    onNodeClick?: (node: any) => void;
     className?: string;
 }
 
@@ -66,6 +67,7 @@ export const NFlowBuilder: React.FC<NFlowBuilderProps> = ({
     initialNodes = [],
     initialEdges = [],
     onSave,
+    onNodeClick,
     className
 }) => {
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as any);
@@ -104,6 +106,7 @@ export const NFlowBuilder: React.FC<NFlowBuilderProps> = ({
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
                     onConnect={onConnect}
+                    onNodeClick={(_, node) => onNodeClick?.(node)}
                     nodeTypes={nodeTypes}
                     fitView
                     snapToGrid
