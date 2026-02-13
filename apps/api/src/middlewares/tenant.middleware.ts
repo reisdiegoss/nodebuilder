@@ -8,7 +8,13 @@ export const tenantMiddleware = async (request: FastifyRequest, reply: FastifyRe
     // Roteamento por Path: /usuario/projeto
     const urlParts = request.url.split('/').filter(p => p !== '');
 
-    if (urlParts.length >= 2 && !request.url.startsWith('/health') && !request.url.startsWith('/billing') && !request.url.startsWith('/admin') && !request.url.startsWith('/auth')) {
+    // Bypass de Isolamento para Autenticação Pública
+    if (request.url.startsWith('/auth')) {
+        (global as any).currentTenantId = undefined;
+        return;
+    }
+
+    if (urlParts.length >= 2 && !request.url.startsWith('/health') && !request.url.startsWith('/billing') && !request.url.startsWith('/admin')) {
         const userSlug = urlParts[0];
         const projectSlug = urlParts[1];
 
@@ -27,7 +33,7 @@ export const tenantMiddleware = async (request: FastifyRequest, reply: FastifyRe
         }
     }
 
-    const finalTenantId = tenantId || 'default-tenant-id';
+    const finalTenantId = tenantId || (global as any).defaultTenantId || 'default-tenant-id';
     (request as any).tenantId = finalTenantId;
     (global as any).currentTenantId = finalTenantId;
 }

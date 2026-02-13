@@ -23,6 +23,43 @@ export default prisma;
   }
 
   /**
+   * Gera o Interceptador de Gatilhos (TriggerInterceptor) para o projeto gerado
+   */
+  static generateTriggerInterceptor() {
+    return `
+/**
+ * TriggerInterceptor (Isolated Runtime)
+ * Captura eventos de escrita nos projetos gerados.
+ * No modo industrial, ele apenas loga ou notifica via webhook se configurado.
+ */
+export const createTriggerExtension = (projectId: string) => {
+    return {
+        name: 'trigger-interceptor',
+        query: {
+            $allModels: {
+                async create({ model, args, query }: any) {
+                    const result = await query(args);
+                    console.log(\`[Trigger] Created \${model} for project \${projectId}\`);
+                    return result;
+                },
+                async update({ model, args, query }: any) {
+                    const result = await query(args);
+                    console.log(\`[Trigger] Updated \${model} for project \${projectId}\`);
+                    return result;
+                },
+                async delete({ model, args, query }: any) {
+                    const result = await query(args);
+                    console.log(\`[Trigger] Deleted \${model} for project \${projectId}\`);
+                    return result;
+                }
+            }
+        }
+    };
+};
+`;
+  }
+
+  /**
    * Gera o RuntimeCRUDService para injeção no container
    */
   static generateRuntimeCRUDService() {
@@ -130,6 +167,13 @@ app.register(formbody);
 
 // Global currentTenantId para uso nos Repositories
 (global as any).currentTenantId = process.env.TENANT_ID || 'default';
+
+app.get('/', async () => ({ 
+    status: 'online', 
+    message: 'NodeBuilder Generated API is running industrial-grade!',
+    version: '1.0.0',
+    endpoints: ['/health', '/docs']
+}));
 
 app.get('/health', async () => ({ status: 'ok', tenant: (global as any).currentTenantId }));
 

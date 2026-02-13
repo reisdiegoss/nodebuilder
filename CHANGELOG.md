@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## [1.4.0] - 2026-02-13
+
+### Adicionado
+
+- **Industrial Launch 2.0 (Bind Mount)**: Migração para montagem direta de pastas físicas em containers, eliminando falhas de sincronização e erros de `ENOENT`.
+- **Multi-Database Auto-Provisioning**: Suporte automático para MySQL e PostgreSQL como serviços Docker Swarm vinculados ao projeto CRUD.
+- **Enterprise Runtime Stabilization**: Injeção automática de `openssl` e `libc6-compat` em containers Alpine para suporte total ao motor Prisma.
+- **Trigger Interceptor Pro**: Geração automática de interceptores de eventos de banco de dados (`trigger.interceptor.ts`) para cada projeto.
+- **Visual Health Check**: Adição de rota raiz (`GET /`) industrial nos projetos gerados para confirmação de status online imediata.
+- **Fast-Boot Architecture**: Eliminação de loops de espera ("Aguardando sincronização") através de escrita prévia em disco.
+
 ## [1.0.0] - 2026-02-10
 
 ### Adicionado

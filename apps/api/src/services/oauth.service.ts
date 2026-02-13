@@ -39,7 +39,7 @@ export class OAuthService {
                     email: email!,
                     name: name || tenantSlug,
                     firebaseId: uid,
-                    role: 'ADMIN',
+                    roleId: 'ADMIN',
                     tenantId: tenant.id
                 });
             } else if (!(user as any).firebaseId) {
@@ -52,5 +52,9 @@ export class OAuthService {
             console.error('Erro na validação Firebase:', error);
             throw new Error('Falha na autenticação via Firebase');
         }
+    }
+
+    static async getGoogleAuthUrl() {
+        return { url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=MOCK&response_type=code&scope=email%20profile' };
     }
 }

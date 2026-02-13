@@ -7,7 +7,8 @@ export class ProjectRepository {
      */
     async findAllByTenant(tenantId: string): Promise<Project[]> {
         return await prisma.project.findMany({
-            where: { tenantId }
+            where: { tenantId },
+            include: { databases: true, modules: true }
         });
     }
 
@@ -16,20 +17,20 @@ export class ProjectRepository {
      */
     async findById(id: string): Promise<Project | null> {
         return await prisma.project.findUnique({
-            where: { id }
+            where: { id },
+            include: { databases: true, modules: true }
         });
     }
 
     /**
-     * Cria um novo projeto
+     * Cria um novo projeto com banco de dados primário
      */
     async create(data: {
         name: string,
         description?: string,
         tenantId: string,
-        multiTenantType?: 'SINGLE_DB' | 'MULTI_DB',
-        restKey?: string,
-        installToken?: string
+        databaseType?: string,
+        multiTenantType?: 'SINGLE_DB' | 'MULTI_DB'
     }): Promise<Project> {
         return await prisma.project.create({
             data: {
@@ -37,9 +38,15 @@ export class ProjectRepository {
                 description: data.description,
                 tenantId: data.tenantId,
                 multiTenantType: data.multiTenantType || 'SINGLE_DB',
-                restKey: data.restKey,
-                installToken: data.installToken
-            } as any
+                databases: {
+                    create: {
+                        name: 'Primário',
+                        type: data.databaseType || 'postgresql',
+                        isPrimary: true
+                    }
+                }
+            } as any,
+            include: { databases: true }
         });
     }
 

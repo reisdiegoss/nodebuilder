@@ -106,7 +106,7 @@ export default class ${className}Page extends NPage {
         const className = this.capitalize(table.name);
         const tenantFilter = tenantType === 'SINGLE_DB' ? `where: { tenantId: (global as any).currentTenantId }` : '';
 
-        return `import { prisma } from '../infra/database';
+        return `import { prisma } from '../infra/database.js';
 
 export class ${className}Repository {
     async findAll() {
@@ -132,13 +132,20 @@ export class ${className}Repository {
         return `// Server Integrado com @nodebuilder/core\nimport Fastify from 'fastify';\nconst server = Fastify();\nserver.listen({ port: 3000 });`;
     }
 
-    protected generatePackageJson(n: string) {
+    protected generatePackageJson(n: string, dbType: string = 'postgresql') {
+        const dbDriver = dbType === 'mysql' ? { "mysql2": "^3.9.2" } : (dbType === 'postgresql' ? { "pg": "^8.11.3" } : {});
+
         return JSON.stringify({
             name: n,
+            type: "module",
             dependencies: {
-                "@nodebuilder/core": "link:../../packages/node-framework",
                 "fastify": "^4.26.0",
-                "@prisma/client": "^5.10.0"
+                "@fastify/cors": "^9.0.1",
+                "@fastify/formbody": "^7.4.0",
+                "@prisma/client": "^5.10.0",
+                "prisma": "^5.10.0",
+                "tsx": "^4.7.1",
+                ...dbDriver
             }
         }, null, 2);
     }

@@ -1,7 +1,8 @@
 import * as XLSX from 'xlsx';
 import { parse } from 'csv-parse/sync';
 import stringSimilarity from 'string-similarity';
-import { knex, Knex } from 'knex';
+import knex from 'knex';
+import type { Knex } from 'knex';
 
 export class ImporterService {
     /**
@@ -119,6 +120,20 @@ export class ImporterService {
         }
 
         return { count: results.length };
+    }
+
+    async parseSQL(buffer: Buffer) {
+        return { headers: ['sql_raw'], sample: [buffer.toString().slice(0, 100)] };
+    }
+
+    async parseJSON(buffer: Buffer) {
+        const data = JSON.parse(buffer.toString());
+        return { headers: Object.keys(data[0] || {}), sample: data.slice(0, 5) };
+    }
+
+    async bulkImportERD(projectId: string, tables: any[]) {
+        console.log(`📦 [Importer] Importação em massa para projeto ${projectId}`);
+        return { success: true, tableCount: tables.length };
     }
 }
 

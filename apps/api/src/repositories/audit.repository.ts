@@ -23,4 +23,11 @@ export class AuditRepository {
             { timestamp: new Date(), level: 'INFO', event: 'Nova Sandbox Criada', context: 'Project: alpha-v1' }
         ];
     }
+
+    static async findByTenant(tenantId: string) {
+        return [
+            { timestamp: new Date(), event: 'Login Realizado', context: { tenantId } },
+            { timestamp: new Date(), event: 'Projeto Lançado', context: { tenantId } }
+        ];
+    }
 }

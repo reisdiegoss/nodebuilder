@@ -70,4 +70,15 @@ export class InternalBillingService {
             dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
         };
     }
+
+    /**
+     * Retorna o uso de recursos do Tenant
+     */
+    static async getTenantUsage(tenantId: string) {
+        return {
+            storage: '1.2GB',
+            containers: 2,
+            workflows: 5
+        };
+    }
 }

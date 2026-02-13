@@ -8,9 +8,11 @@
 
 ## Fase 2 (Infra & Deploy) - [CONCLUÍDO]
 
-- [x] Integração Docker Engine API local.
+- [x] Integração Docker Engine API local & Swarm.
 - [x] Automação de Migrations (ERD -> Prisma).
-- [x]- SmartParser Pro: Injeção automática de `where: { tenantId }` para isolamento SaaS.
+- [x] SmartParser Pro: Injeção automática de `where: { tenantId }` para isolamento SaaS.
+- [x] **Bind Mount Industrial**: Estabilização total do boot evitando ENOENT.
+- [x] **Multi-DB Automatic Provisioning**: MySQL/Postgres automático para CRUDs.
 
 ## [1.1.0] - 2026-02-11
 

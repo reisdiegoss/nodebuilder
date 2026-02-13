@@ -27,6 +27,7 @@ model Tenant {
 model User {
   id         String   @id @default(uuid())
   email      String   @unique
+  name       String?
   password   String?
   firebaseId String?  @unique
   roleId     String?
@@ -100,6 +101,29 @@ model Project {
   automations     AutomationTrigger[]
   deployments     Deployment[]
   workflows       Workflow[]
+  databases       ProjectDatabase[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProjectDatabase {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  name        String   // Ex: "Principal", "MySQL Consulta"
+  type        String   // postgresql, mysql, sqlite
+  isPrimary   Boolean  @default(false)
+  
+  // Configurações de Conexão (Sandbox/Internal)
+  host        String?
+  port        Int?
+  database    String?
+  username    String?
+  password    String?
+  
+  // Produção (Connection String ou Env Key)
+  prodUrl     String?
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -109,6 +133,7 @@ model Webhook {
   id          String   @id @default(uuid())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id])
+  tenantId    String   @default("default-tenant-id")
   name        String
   url         String
   token       String?
@@ -121,6 +146,7 @@ model Service {
   id          String   @id @default(uuid())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id])
+  tenantId    String   @default("default-tenant-id")
   name        String
   content     String   // O código TS gerado ou editado
   description String?
@@ -132,6 +158,7 @@ model AutomationTrigger {
   id          String   @id @default(uuid())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id])
+  tenantId    String   @default("default-tenant-id")
   eventType   String   // EX: ON_CREATE, ON_WEBHOOK
   actionType  String   // EX: SEND_EMAIL, NOTIFY_URL
   config      Json     // Parâmetros da automação
@@ -145,6 +172,7 @@ model Module {
   name      String
   type      String   // PAGE, COMPONENT, API_ROUTE
   schema    Json     // The visual design metadata
+  tenantId  String   @default("default-tenant-id")
   projectId String
   project   Project  @relation(fields: [projectId], references: [id])
   createdAt DateTime @default(now())
@@ -156,6 +184,7 @@ model Deployment {
   status    String   // PENDING, RUNNING, STOPPED, FAILED
   url       String?
   port      Int
+  tenantId  String   @default("default-tenant-id")
   projectId String
   project   Project  @relation(fields: [projectId], references: [id])
   createdAt DateTime @default(now())
@@ -183,6 +212,7 @@ model WorkflowStep {
   id          String   @id @default(uuid())
   workflowId  String
   workflow    Workflow @relation(fields: [workflowId], references: [id])
+  tenantId    String   @default("default-tenant-id")
   type        String   // WEBHOOK, LOG, CONDITION, SEND_EMAIL, ASAAS_PAYMENT
   config      Json     // Parâmetros (URL, template, etc.)
   order       Int      @default(0)

@@ -10,10 +10,11 @@ interface Project {
 }
 
 interface ProjectDashboardProps {
+    user: any;
     onSelectProject: (project: Project) => void;
 }
 
-export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject }) => {
+export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ user, onSelectProject }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showNewModal, setShowNewModal] = useState(false);
@@ -26,7 +27,9 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProj
     const fetchProjects = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch('http://localhost:3000/projects');
+            const response = await fetch('http://localhost:3000/projects', {
+                headers: { 'x-tenant-id': user.tenantId }
+            });
             const data = await response.json();
             setProjects(data);
         } catch (error) {
@@ -42,8 +45,11 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProj
         try {
             const response = await fetch('http://localhost:3000/projects', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newProject)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-tenant-id': user.tenantId
+                },
+                body: JSON.stringify({ ...newProject, tenantId: user.tenantId })
             });
 
             if (response.ok) {
@@ -137,6 +143,18 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProj
                                     value={newProject.description}
                                     onChange={e => setNewProject({ ...newProject, description: e.target.value })}
                                 />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Banco de Dados Inicial</label>
+                                <select
+                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-600 transition-colors text-white"
+                                    value={(newProject as any).databaseType || 'postgresql'}
+                                    onChange={e => setNewProject({ ...newProject, databaseType: e.target.value } as any)}
+                                >
+                                    <option value="postgresql">PostgreSQL (Recomendado)</option>
+                                    <option value="mysql">MySQL</option>
+                                    <option value="sqlite">SQLite</option>
+                                </select>
                             </div>
                         </div>
 

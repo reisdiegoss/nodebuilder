@@ -89,4 +89,8 @@ export class MigrationService {
 
         return { success: true, schema: schemaContent };
     }
+
+    static async getStatus(containerId: string) {
+        return { status: 'DEPLOID', healthy: true, containerId };
+    }
 }

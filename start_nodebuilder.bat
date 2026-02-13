@@ -32,9 +32,22 @@ exit /b
 
 :INSTALL_STEP
 echo.
-echo [2/3] Sincronizando Dependencias do Monorepo...
-echo [INFO] Isso pode levar alguns instantes...
+echo [2/3] Sincronizando Dependencias e Limpando Portas...
+echo [INFO] Encerrando todos os processos Node residuais...
+taskkill /F /IM node.exe /T >nul 2>&1
+
+echo [INFO] Liberando portas 3000 (API) e 5173 (Web) se ocupadas...
+:: Limpar Porta 3000 (API)
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000 ^| findstr LISTENING') do taskkill /f /pid %%a >nul 2>&1
+
+:: Limpar Porta 5173 (Web)
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5173 ^| findstr LISTENING') do taskkill /f /pid %%a >nul 2>&1
+
+echo [INFO] Sincronizando pacotes e Gerando Prisma Client...
 call npm install
+cd packages/database
+call npx prisma generate
+cd ../..
 
 echo.
 echo [3/3] Disparando Motores NodeBuilder...

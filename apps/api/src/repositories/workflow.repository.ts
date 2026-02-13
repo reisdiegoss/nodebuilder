@@ -8,6 +8,13 @@ export class WorkflowRepository {
         });
     }
 
+    async findAllByTenant(tenantId: string) {
+        return await prisma.workflow.findMany({
+            where: { tenantId },
+            include: { steps: { orderBy: { order: 'asc' } } }
+        });
+    }
+
     async findById(id: string) {
         return await prisma.workflow.findUnique({
             where: { id },
@@ -41,6 +48,14 @@ export class WorkflowRepository {
         }
 
         return this.findById(workflow.id);
+    }
+
+    async create(data: any) {
+        return this.upsert(data);
+    }
+
+    async update(id: string, data: any) {
+        return this.upsert({ ...data, id });
     }
 
     async delete(id: string) {

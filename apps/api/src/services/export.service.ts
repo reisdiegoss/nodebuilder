@@ -53,4 +53,8 @@ export class ExportService {
             }
         }, 60000); // Roda a cada minuto
     }
+
+    static async exportToZip(projectName: string, files: Record<string, string>) {
+        return await this.generateZip(projectName, files);
+    }
 }

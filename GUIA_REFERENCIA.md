@@ -16,3 +16,10 @@
 - Nomenclatura com prefixo `N`.
 - Multi-tenancy isolado via injeção de `tenantId`.
 - Estética Premium com Tailwind CSS e Framer Motion.
+
+## Runtime Industrial (@nodebuilder/generated)
+
+- `trigger.interceptor.ts`: Intercepta mutações via Prisma Extensions.
+- `GET /`: Rota de status industrial ("Online").
+- `GET /health`: Diagnóstico de tenant e conectividade.
+- `DATABASE_URL`: Injetado via variável de ambiente baseada no banco provisionado (MySQL/Postgres/SQLite).

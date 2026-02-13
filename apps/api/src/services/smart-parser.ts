@@ -9,8 +9,9 @@ import type { Table, Field, WebhookDefinition } from './oop-engine.service.js';
  */
 export class SmartParser extends OOPEngineService {
     // Sobrescrevendo para usar o novo padrão consolidado
-    generateProject(projectName: string, userSlug: string, projectSlug: string, tables: Table[], webhooks: WebhookDefinition[] = [], options: { multiTenantType: 'SINGLE_DB' | 'MULTI_DB' } = { multiTenantType: 'SINGLE_DB' }) {
+    generateProject(projectName: string, userSlug: string, projectSlug: string, tables: Table[], webhooks: WebhookDefinition[] = [], options: { multiTenantType: 'SINGLE_DB' | 'MULTI_DB', dbType?: 'mysql' | 'postgresql' | 'sqlite' } = { multiTenantType: 'SINGLE_DB', dbType: 'postgresql' }) {
         const result: Record<string, string> = {};
+        const dbType = options.dbType || 'postgresql';
 
         tables.forEach(table => {
             const lowName = table.name.toLowerCase();
@@ -25,8 +26,10 @@ export class SmartParser extends OOPEngineService {
 
         // InfraestruturaConsolidada
         result['src/infra/database.ts'] = BoilerplateService.generateDatabaseConfig(projectSlug, userSlug);
+        result['src/infra/trigger.interceptor.ts'] = BoilerplateService.generateTriggerInterceptor();
         result['src/index.ts'] = BoilerplateService.generateServerMain();
-        result['package.json'] = this.generatePackageJson(projectName);
+        result['package.json'] = this.generatePackageJson(projectName, dbType);
+        result['prisma/schema.prisma'] = SmartParser.convertERDToPrisma(tables, dbType);
 
         // Runtime Backend (API Generator)
         result['src/services/RuntimeCRUDService.ts'] = BoilerplateService.generateRuntimeCRUDService();
@@ -112,8 +115,8 @@ export default class ${className}Page extends NPage {
         return `<NInput label="${field.name.toUpperCase()}" name="${field.name}" />`;
     }
 
-    public static convertERDToPrisma(tables: any[]): string {
-        let schema = `// NodeBuilder Generated Schema\ndatasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n`;
+    public static convertERDToPrisma(tables: any[], dbType: 'mysql' | 'postgresql' | 'sqlite' = 'postgresql'): string {
+        let schema = `// NodeBuilder Generated Schema\ndatasource db {\n  provider = "${dbType}"\n  url      = env("DATABASE_URL")\n}\n\ngenerator client {\n  provider = "prisma-client-js"\n}\n\n`;
 
         tables.forEach(table => {
             const className = SmartParser.prototype.capitalize(table.name);

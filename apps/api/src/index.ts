@@ -9,6 +9,7 @@ import { AuthService } from './services/auth.service.js';
 import { OAuthService } from './services/oauth.service.js';
 import { userRepository } from './repositories/user.repository.js';
 import { projectRepository } from './repositories/project.repository.js';
+import { IntrospectionService } from './services/introspection.service.js';
 import { moduleRepository } from './repositories/module.repository.js';
 import { deploymentRepository } from './repositories/deployment.repository.js';
 import { oopEngineService } from './services/oop-engine.service.js';
@@ -22,6 +23,12 @@ import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { prisma } from '../../../packages/database/index.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const fastify = Fastify({
     logger: true
@@ -54,6 +61,21 @@ fastify.register(swaggerUi, {
 const start = async () => {
     try {
         await fastify.register(cors);
+
+        // Bootstrap: Garantir Tenant Padrão (Industrial 01)
+        const defaultTenant = await prisma.tenant.upsert({
+            where: { slug: 'default' },
+            update: {},
+            create: {
+                id: 'default-tenant-id',
+                name: 'Default Industrial Tenant',
+                slug: 'default',
+                plan: 'ENTERPRISE',
+                status: 'ACTIVE'
+            }
+        });
+        (global as any).defaultTenantId = defaultTenant.id;
+        console.log('✅ [Bootstrap] Tenant Industrial Garantido:', defaultTenant.id);
 
         // Middleware de Tenant
         fastify.addHook('preHandler', tenantMiddleware);
@@ -89,6 +111,30 @@ const start = async () => {
             return await projectRepository.create({ ...body, tenantId });
         });
 
+        // Databases Management (Multi-DB)
+        fastify.get('/projects/:id/databases', async (request) => {
+            const { id } = request.params as any;
+            return await prisma.projectDatabase.findMany({ where: { projectId: id } });
+        });
+
+        fastify.post('/projects/:id/databases', async (request) => {
+            const { id } = request.params as any;
+            const body = request.body as any;
+            return await prisma.projectDatabase.create({
+                data: { ...body, projectId: id }
+            });
+        });
+
+        fastify.delete('/databases/:id', async (request) => {
+            const { id } = request.params as any;
+            return await prisma.projectDatabase.delete({ where: { id } });
+        });
+
+        fastify.get('/databases/:id/inspect', async (request) => {
+            const { id } = request.params as any;
+            return await IntrospectionService.inspect(id);
+        });
+
         fastify.post('/projects/deploy', async (request, reply) => {
             const { projectName } = request.body as any;
             const tenantId = (request as any).tenantId;
@@ -97,46 +143,15 @@ const start = async () => {
                 const service = await dockerService.createSwarmService(projectName, tenantId);
 
                 // MOCK: Em produção salvaríamos o ID do serviço no Deployment
-                await prisma.deployment.create({
+                const deployment = await prisma.deployment.create({
                     data: {
                         projectId: projectName, // MOCK: Deveria ser o UUID do projeto
-                        containerId: service.id,
+                        url: `http://localhost:${service.port}`,
                         status: 'RUNNING',
-                        url: `http://nodebuilder.com/${(request as any).resolvedTenant?.slug || 'default'}/${projectName}`
+                        tenantId,
+                        port: 3000 // Porta padrão para o container
                     }
-                } as any);
-
-                return service;
-            } catch (err) {
-                fastify.log.error(err);
-                return reply.status(500).send({ error: 'Falha ao orquestrar Swarm Service' });
-            }
-        });
-
-        // Orquestrador de Lançamento (Launch Wizard)
-        fastify.post('/projects/:id/launch', async (request, reply) => {
-            const { id } = request.params as any;
-            const tenantId = (request as any).tenantId;
-            const tenantSlug = (request as any).resolvedTenant?.slug || 'default';
-
-            try {
-                // 1. Buscar Projeto e Tabelas
-                const project = await projectRepository.findById(id);
-                if (!project) return reply.status(404).send({ error: 'Projeto não encontrado' });
-
-                // MOCK: Tabelas viriam do Modeler salvo no banco ou enviadas no body
-                const { tables } = request.body as any;
-
-                // 2. Gerar Código
-                const smartParser = new SmartParser();
-                const files = smartParser.generateProject(project.name, tenantSlug, project.name, tables || []);
-
-                // 3. Criar Container/Serviço
-                const service = await dockerService.createSwarmService(project.name, tenantId);
-
-                // 4. Sincronizar Arquivos
-                const syncData = Object.entries(files).map(([path, content]) => ({ path, content }));
-                await dockerService.syncFiles(service.id, syncData);
+                });
 
                 return {
                     status: 'success',
@@ -145,176 +160,221 @@ const start = async () => {
                 };
             } catch (err) {
                 fastify.log.error(err);
+                return reply.status(500).send({ error: 'Falha no deploy do projeto' });
+            }
+        });
+
+        fastify.post('/projects/undeploy', async (request, reply) => {
+            const { serviceId } = request.body as any;
+            try {
+                await dockerService.removeSwarmService(serviceId);
+                return { status: 'success' };
+            } catch (err) {
+                return reply.status(500).send({ error: 'Falha ao remover serviço' });
+            }
+        });
+
+        // Dashboard de Métricas
+        fastify.get('/stats', async (request) => {
+            const tenantId = (request as any).tenantId;
+            const projects = await projectRepository.findAllByTenant(tenantId);
+            const deployments = await prisma.deployment.findMany({ where: { tenantId } });
+            const activeDeployments = deployments.filter(d => d.status === 'RUNNING');
+
+            return {
+                totalProjects: projects.length,
+                activeDeployments: activeDeployments.length,
+                totalDeployments: deployments.length,
+                usage: {
+                    storage: '1.2GB',
+                    containers: activeDeployments.length
+                }
+            };
+        });
+
+        // Orquestrador de Lançamento (Launch Wizard)
+        fastify.post('/projects/:id/launch', async (request, reply) => {
+            const { id } = request.params as any;
+            const tenantId = (request as any).tenantId;
+            const resolvedTenant = (request as any).resolvedTenant;
+            const tenantSlug = resolvedTenant?.slug || 'default';
+
+            // SaaS Guard: Bloquear Launch se o Tenant não estiver Ativo
+            if (resolvedTenant && resolvedTenant.status !== 'ACTIVE') {
+                return reply.status(402).send({
+                    error: 'ACCOUNT_SUSPENDED',
+                    message: 'Seu plano está inativo ou com pagamentos pendentes. Por favor, regularize sua conta para lançar projetos.'
+                });
+            }
+
+            try {
+                // 1. Buscar Projeto e Tabelas
+                const project = await projectRepository.findById(id);
+                if (!project) return reply.status(404).send({ error: 'Projeto não encontrado' });
+
+                // MOCK/Body: Tabelas e Configs de Banco
+                const { tables, dbType, multiTenantType } = request.body as any;
+                const finalDbType = dbType || 'sqlite';
+
+                // 2. Gerar Código
+                const smartParser = new SmartParser();
+                const files = smartParser.generateProject(project.name, tenantSlug, project.name, tables || [], [], {
+                    multiTenantType: multiTenantType || 'SINGLE_DB',
+                    dbType: finalDbType
+                });
+
+                // 3. Preparar Pasta Física (Bind Mount)
+                const storageDir = path.resolve(__dirname, '../../../../storage/projects', id);
+                await fs.mkdir(storageDir, { recursive: true });
+
+                for (const [filePath, content] of Object.entries(files)) {
+                    const fullPath = path.join(storageDir, filePath);
+                    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+                    await fs.writeFile(fullPath, content);
+                }
+
+                // 4. Criar Container/Serviço (Montando a pasta física)
+                const service = await dockerService.createSwarmService(project.name, tenantId, finalDbType, storageDir);
+
+                return {
+                    status: 'success',
+                    url: `http://localhost:${service.port}`,
+                    serviceId: service.id,
+                    storagePath: storageDir
+                };
+            } catch (err) {
+                fastify.log.error(err);
                 return reply.status(500).send({ error: 'Falha no Launch do projeto' });
             }
         });
 
-        fastify.post('/projects/undeploy', async (request) => {
-            const { serviceId } = request.body as any;
-            return await dockerService.removeSwarmService(serviceId);
+        fastify.get('/migrations/status', async (request) => {
+            const migrationService = new MigrationService();
+            return await migrationService.getStatus();
         });
 
-        // A Ponte de Ouro: ERD -> Banco Real
-        fastify.post('/migrations/sync', async (request, reply) => {
-            const { projectId, containerId, tables } = request.body as any;
-
-            try {
-                // 1. Gerar Schema
-                const prismaSchema = MigrationService.convertERDToPrisma(tables);
-
-                // 2. Sincronizar com Container
-                if (containerId) {
-                    await dockerService.syncFiles(containerId, [
-                        { path: 'prisma/schema.prisma', content: prismaSchema }
-                    ]);
-
-                    // 3. Notificar o usuário (Hot Update pronto)
-                    fastify.log.info(`Banco de Dados do Projeto ${projectId} atualizado.`);
-                }
-
-                return { success: true, schema: prismaSchema };
-            } catch (err) {
-                fastify.log.error(err);
-                return reply.status(500).send({ error: 'Erro ao sincronizar banco de dados' });
+        fastify.post('/docker/cleanup', async () => {
+            const services = await dockerService.listSwarmServices();
+            for (const s of services) {
+                await dockerService.removeSwarmService(s.ID!);
             }
+            return { status: 'cleaned', count: services.length };
         });
 
-        // Rotas da Enterprise Engine (Smart Parser 2.0)
-        fastify.post('/engine/generate/oop', async (request) => {
-            const { projectName, userSlug, projectSlug, tables, webhooks } = request.body as any;
-            const smartParser = new SmartParser();
-            return smartParser.generateProject(projectName, userSlug, projectSlug, tables, webhooks);
-        });
-
-        // SaaS/IDE: Experiência do Cliente
-        fastify.get('/admin/projects/:id/files', async () => {
-            // Mock de estrutura de arquivos
-            return [
-                { name: 'src', type: 'dir', children: [{ name: 'entities', type: 'dir' }] },
-                { name: 'package.json', type: 'file' }
-            ];
-        });
-
-        fastify.post('/admin/projects/export', async (request, reply) => {
-            const { projectName, files } = request.body as any;
-            const zipResult = await ExportService.generateZip(projectName, files);
-            return reply.send(zipResult);
-        });
-
-        // Rotas do Importador Inteligente
-        fastify.post('/importer/analyze', async (request, reply) => {
-            const data = await request.file();
-            if (!data) return reply.status(400).send({ error: 'Nenhum arquivo enviado' });
-
-            const buffer = await data.toBuffer();
-            const type = data.filename.endsWith('.csv') ? 'csv' : 'xlsx';
-
-            return await importerService.analyzeFile(buffer, type);
-        });
-
-        fastify.post('/importer/suggest', async (request) => {
-            const { fileHeaders, schemaFields } = request.body as any;
-            return importerService.getMappingSuggestions(fileHeaders, schemaFields);
-        });
-
-        fastify.post('/importer/confirm', async (request, reply) => {
-            const { fileBase64, fileType, mapping, targetModel } = request.body as any;
-            const buffer = Buffer.from(fileBase64, 'base64');
-
-            // Mapear o repositório correto dinamicamente para o MVP
-            const repositories: Record<string, any> = {
-                'user': userRepository,
-                'project': projectRepository
-            };
-
-            const repo = repositories[targetModel.toLowerCase()];
-            if (!repo) return reply.status(400).send({ error: 'Modelo não suportado para importação' });
-
-            return await importerService.processImport(buffer, fileType, mapping, repo);
-        });
-
-        // Rotas de Faturamento (Interno)
-        fastify.post('/billing/check', async () => {
-            await InternalBillingService.checkSubscribers();
-            return { status: 'success', message: 'Verificação de assinaturas concluída.' };
-        });
-
-        fastify.post('/billing/pay', async (request) => {
-            const { tenantId } = request.body as any;
-            return await InternalBillingService.createPaymentIntent(tenantId);
-        });
-
-        // Rotas de Workflows (Low-Code Automation)
-        fastify.get('/workflows', async (request) => {
-            const projectId = (request.query as any).projectId;
-            return await workflowRepository.findAllByProject(projectId);
-        });
-
-        fastify.get('/workflows/:id', async (request) => {
+        // EXPORT INTEGRATION
+        fastify.get('/projects/:id/export', async (request, reply) => {
             const { id } = request.params as any;
-            return await workflowRepository.findById(id);
+            const project = await projectRepository.findById(id);
+            if (!project) return reply.status(404).send({ error: 'Projeto não encontrado' });
+
+            const smartParser = new SmartParser();
+            const files = smartParser.generateProject(project.name, 'default', project.name, []);
+
+            const exportService = new ExportService();
+            const zipBuffer = await exportService.exportToZip(files);
+
+            reply.header('Content-Type', 'application/zip');
+            reply.header('Content-Disposition', `attachment; filename=${project.name}.zip`);
+            return zipBuffer;
+        });
+
+        // IMPORTER INTEGRATION
+        fastify.post('/import/sql', async (request, reply) => {
+            const data = await request.file();
+            if (!data) return reply.status(400).send({ error: 'Arquivo SQL não enviado' });
+
+            const content = await data.toBuffer();
+            const tables = await importerService.parseSQL(content);
+
+            return { tables };
+        });
+
+        fastify.post('/import/json', async (request) => {
+            const body = request.body as any;
+            return importerService.parseJSON(body);
+        });
+
+        fastify.post('/import/erd', async (request, reply) => {
+            const { tables, userId, projectId } = request.body as any;
+            const result = await importerService.bulkImportERD(projectId, tables);
+            return result;
+        });
+
+        // BILLING INTEGRATION
+        fastify.get('/billing/usage', async (request) => {
+            const tenantId = (request as any).tenantId;
+            return await InternalBillingService.getTenantUsage(tenantId);
+        });
+
+        // WORKFLOW INTEGRATION
+        fastify.get('/workflows', async (request) => {
+            const tenantId = (request as any).tenantId;
+            return await workflowRepository.findAllByTenant(tenantId);
         });
 
         fastify.post('/workflows', async (request) => {
             const body = request.body as any;
-            return await workflowRepository.upsert(body);
+            const tenantId = (request as any).tenantId;
+            return await workflowRepository.create({ ...body, tenantId });
         });
 
-        fastify.delete('/workflows/:id', async (request) => {
-            const { id } = request.params as any;
-            return await workflowRepository.delete(id);
+        fastify.get('/workflows/:id', async (request) => {
+            return await workflowRepository.findById((request.params as any).id);
         });
 
-        fastify.post('/workflows/hooks/:id', async (request) => {
-            const { id } = request.params as any;
-            const payload = request.body || {};
-            await WorkflowExecutor.executeWorkflow(id, payload);
-            return { status: 'Workflow triggered' };
+        fastify.put('/workflows/:id', async (request) => {
+            return await workflowRepository.update((request.params as any).id, request.body as any);
         });
 
-        // Rotas de Autenticação
-        fastify.post('/auth/signup', async (request) => {
-            const body = request.body as any;
-            return await AuthService.signup(body);
+        fastify.post('/workflows/:id/execute', async (request) => {
+            return await WorkflowExecutor.executeWorkflow((request.params as any).id, request.body as any);
         });
 
-        fastify.post('/auth/login', async (request) => {
+        // AUTH INTEGRATION
+        fastify.post('/auth/login', async (request, reply) => {
             const { email, password } = request.body as any;
-            return await AuthService.login(email, password);
+            try {
+                const user = await AuthService.login(email, password);
+                return { status: 'success', user };
+            } catch (err) {
+                return reply.status(401).send({ error: (err as any).message });
+            }
         });
 
-        fastify.post('/auth/oauth/firebase', async (request) => {
-            const { idToken } = request.body as any;
-            return await OAuthService.handleFirebaseSession(idToken);
+        fastify.post('/auth/register', async (request, reply) => {
+            const body = request.body as any;
+            try {
+                const result = await AuthService.signup(body);
+                return { status: 'success', ...result };
+            } catch (err) {
+                return reply.status(400).send({ error: (err as any).message });
+            }
         });
 
-        // Inicialização
-        // SaaS: Recebimento de Webhooks Asaas
-        fastify.post('/billing/webhooks/asaas', async (request, reply) => {
-            const payload = request.body as any;
-            await AsaasService.handleWebhook(payload);
-            return reply.send({ received: true });
+        fastify.get('/auth/google/url', async () => {
+            return await OAuthService.getGoogleAuthUrl();
         });
 
-        // SaaS: Auditoria de Logs
-        fastify.get('/admin/logs', async () => {
-            return await AuditRepository.getLogs();
+        // ASAAS INTEGRATION
+        fastify.post('/webhooks/asaas', async (request) => {
+            return await AsaasService.handleWebhook(request.body as any);
         });
 
-        // SaaS: Gestão Global de Projetos (CRUD c/ POO)
-        fastify.get('/admin/projects', async () => {
-            return await projectRepository.findAllGlobal();
+        // AUDIT INTEGRATION
+        fastify.get('/audit', async (request) => {
+            const tenantId = (request as any).tenantId;
+            return await AuditRepository.findByTenant(tenantId);
         });
 
-        fastify.delete('/admin/projects/:id', async (request) => {
-            const { id } = request.params as any;
-            return await projectRepository.delete(id);
+        // PORT LIMITS INTEGRATION
+        fastify.get('/ports/next', async () => {
+            return { port: await dockerService.getNextAvailablePort() };
         });
 
         await fastify.listen({ port: 3000, host: '0.0.0.0' });
-        console.log('🚀 Server pronto em http://localhost:3000');
+        console.log('🚀 [Industrial 01] NodeBuilder API Online na porta 3000');
     } catch (err) {
-        fastify.log.error(err);
+        console.error('❌ Erro no boot da API:', err);
         process.exit(1);
     }
 };

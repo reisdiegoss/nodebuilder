@@ -21,17 +21,25 @@ import { AdminPanel } from './components/AdminPanel.tsx';
 import { ModuleListing } from './components/ModuleListing.tsx';
 import { WorkflowDesigner } from './components/WorkflowDesigner.tsx';
 import { ProjectDashboard } from './components/ProjectDashboard.tsx';
+import { ProjectStats } from './components/ProjectStats.tsx';
+import { Onboarding } from './components/Onboarding.tsx';
+import { ProjectSettings } from './components/ProjectSettings.js';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [selectedProject, setSelectedProject] = useState<any>(null)
   const [isLaunching, setIsLaunching] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [user, setUser] = useState<any>(null);
 
   // Resetar URL de preview ao trocar de projeto
   useEffect(() => {
     setPreviewUrl(null);
   }, [selectedProject]);
+
+  if (!user) {
+    return <Onboarding onSuccess={(data) => setUser(data.user)} />;
+  }
 
   const handleLaunchTest = async () => {
     if (!selectedProject) return;
@@ -41,7 +49,10 @@ function App() {
       // Para o MVP Industrial 01, enviamos um schema básico se o modeler não estiver sincronizado
       const response = await fetch(`http://localhost:3000/projects/${selectedProject.id}/launch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': user.tenantId
+        },
         body: JSON.stringify({
           tables: [
             { name: 'Usuario', fields: [{ name: 'id', type: 'string', isPrimary: true }, { name: 'email', type: 'string' }] }
@@ -78,10 +89,13 @@ function App() {
           </button>
         </header>
         <main className="flex-1 overflow-y-auto">
-          <ProjectDashboard onSelectProject={(p) => {
-            setSelectedProject(p);
-            setActiveTab('database');
-          }} />
+          <ProjectDashboard
+            user={user}
+            onSelectProject={(p) => {
+              setSelectedProject(p);
+              setActiveTab('database');
+            }}
+          />
         </main>
       </div>
     );
@@ -108,7 +122,7 @@ function App() {
         </nav>
 
         <div className="mt-auto">
-          <SidebarIcon icon={<Settings size={20} />} />
+          <SidebarIcon icon={<Settings size={20} />} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </div>
       </aside>
 
@@ -125,15 +139,27 @@ function App() {
           <div className="space-y-2">
             <TreeItem label="Models (Database)" />
             <div className="ml-4 border-l border-zinc-800 pl-2 space-y-1">
-              <TreeItem label="Usuario" isSelected />
-              <TreeItem label="Pedido" />
+              {selectedProject?.databases?.length ? (
+                selectedProject.databases.map((db: any) => (
+                  <TreeItem key={db.id} label={`${db.name} (${db.type})`} />
+                ))
+              ) : (
+                <span className="text-[10px] text-zinc-600 ml-2 italic">Nenhum banco configurado</span>
+              )}
             </div>
           </div>
           <div className="space-y-2">
             <TreeItem label="Páginas" />
             <div className="ml-4 border-l border-zinc-800 pl-2 space-y-1">
-              <TreeItem label="Dashboard" />
-              <TreeItem label="Relatórios" />
+              {selectedProject?.modules?.filter((m: any) => m.type === 'PAGE').length ? (
+                selectedProject.modules
+                  .filter((m: any) => m.type === 'PAGE')
+                  .map((p: any) => (
+                    <TreeItem key={p.id} label={p.name} />
+                  ))
+              ) : (
+                <span className="text-[10px] text-zinc-600 ml-2 italic">Nenhuma página criada</span>
+              )}
             </div>
           </div>
         </div>
@@ -183,11 +209,14 @@ function App() {
           {activeTab === 'modules' && <ModuleListing />}
           {activeTab === 'admin' && <AdminPanel />}
           {activeTab === 'automation' && <WorkflowDesigner />}
-          {activeTab === 'dashboard' && (
-            <div className="flex flex-col items-center justify-center h-full text-zinc-600 space-y-4">
-              <LayoutDashboard size={48} className="opacity-10 stroke-[1px]" />
-              <p className="text-sm font-medium">Dashboard do Projeto em construção.</p>
-            </div>
+          {activeTab === 'dashboard' && <ProjectStats user={user} />}
+          {activeTab === 'settings' && selectedProject && (
+            <ProjectSettings
+              project={selectedProject}
+              onUpdate={() => {
+                // Opcional: Recarregar dados do projeto se necessário
+              }}
+            />
           )}
           {['explorer', 'pages'].includes(activeTab) && (
             <div className="flex items-center justify-center h-full text-zinc-600">
